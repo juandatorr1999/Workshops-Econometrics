@@ -1,0 +1,122 @@
+---
+title: "Practice Exam 1 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Mar 17 2021"
+output:
+  html_document:
+    df_print: paged
+---
+# Part I Hypothesis Testing
+```{r}
+rm(list=ls())
+library(quantmod)
+
+getSymbols(c("AMZN"), from="2019-01-01", to= "2021-02-28", periodicity="monthly", src="yahoo")
+```
+
+Calculating returns
+```{r}
+#CC Returns
+r_AMZN = na.omit(diff(log(Ad(AMZN))))
+#Simple Returns
+R_AMZN = na.omit(AMZN$AMZN.Adjusted / lag(AMZN$AMZN.Adjusted, n=1) -1)
+```
+
+Histogram
+```{r}
+hist(R_AMZN, main="Histogram of AMZN monthly simple returns", xlab="Simple returns", col="dark blue")
+```
+INTERPRET
+MOST OF THE VALUES ARE CONCENTRATED -0.1 AND 0.1. THERE HAVE BEEN MOSTLY NEGATIVE MONTHS BETWEEN -0.05 AND 0 SIMPLE RETURNS. THERE HAS BEEN ONE GOOD MONTH WITH RETURNS BETWEEN 0.25 AND 0.3 BETWEEN FEB 2019 AND FEB 2021.
+THE GRAPH IS SKEWED TO THE LEFT A LITTLE, BUT IT CAN BE SEEN THAT THE LOWEST MONTHS HAVE BEEN ONLY BETWEEN -0.1 AND -0.05.
+
+
+Is the average of AMZN cc returns significantly higher than 1%?
+
+Manual Calculations
+```{r}
+# Null and alternative hypothesis
+#H0: mean_r_AMZN = 0.01
+#HA: mean_r_AMZN > 0.01
+
+#Calculation of the standard error
+se_AMZN <- sd(r_AMZN, na.rm = TRUE) / sqrt(nrow(r_AMZN))
+cat("Standard error r_AAPL" , se_AMZN,"\n")
+
+#Calculation of the t-value. The 0 below is the H0
+t_val_AMZN <- (mean(r_AMZN, na.rm=TRUE) - 0.01) / se_AMZN
+cat("t-value AMZN = ", t_val_AMZN)
+```
+
+Using t.test function
+
+```{r}
+ttest_AMZN <- t.test(as.numeric(r_AMZN), alternative = "greater",mu = 0.01)
+print(ttest_AMZN$statistic)
+
+```
+
+THE T VALUE IS 0.8806037 WHICH MEANS THAT THE NULL HYPOTHESIS CANNOT BE REJECTED BECAUSE IT IS SMALLER THAN 2. THIS MEANS THAT THERE IS NO STATISTICAL EVIDENCE TO STATE THAT THE ACERAGE OF THE CC RETURNS OF AMAZON ARE HIGHER THAN 1%.
+
+
+# Part II Regression model
+
+Downloading the monthly prices
+```{r}
+rm(list=ls())
+getSymbols(c("ALFAA.MX", "^MXX"), from="2016-01-01", to= "2021-1-31", periodicity="monthly", src="yahoo")
+```
+Calculation of CC Returns
+```{r}
+r_ALFAA <- na.omit(diff(log(ALFAA.MX$ALFAA.MX.Adjusted))) 
+
+r_MXX <- na.omit(diff(log(MXX$MXX.Adjusted)))
+```
+
+
+
+Plotting the returns of both values 
+```{r}
+plot.default(x=r_MXX,y=r_ALFAA, xlim=c(-0.30,0.30) )
+abline(lm(r_ALFAA ~ r_MXX),col='blue')
+```
+Run the regression model 
+```{r}
+reg <- lm(r_ALFAA ~ r_MXX)
+```
+
+Get the summary of the regression output into a variable
+```{r}
+sumreg<- summary(reg)
+sumreg
+```
+
+
+1. WHAT IS THE REGRESSION EQUATION OF THIS MODEL? WRITE IT AS COMMENT.
+THE REGRESSION EQUATION OF THIS MODEL IS: r_ALFAA = 1.90225 * r_MXX - 0.01541
+
+2. WHAT CAN YOU SAY ABOUT THE MARKET RISK OF THE STOCK?
+THE MARKET RISK IS HIGH BECAUSE THE B1 IS 1.90225 SO WHEN THE MARKET CHANGES IN ONE UNIT THE ALFAA STOCK CHANGES 1.9 TIMES. THERE IS ALSO A HIGH STARDARD ERROR WHICH MEANS THAT THE MARKET RISK B1 CAN BE VERY VOLATILE, THE 95% CI ARE 1.35833 AND 2.44617 WHICH MEANS THAT WITH 95% CONFIDENCE IT CAN BE SAID THAT THE ALFAA STOCK IS SIGNIFICANTLY RISKIER THAN THE MARKET.
+
+3. DOES ALFAA SIGNIFICANTLY OFFER RETURNS OVER OR UNDER THE MARKET? JUSTIFY YOUR ANSWER WITH THE REGRESSION OUTPUT
+
+GIVEN THE LINEAR EQUATION OF THE REGRESSION OUTPUT IF THE MARKET HAS A RETURN OF 10% THEN THIS MEANS THAT THE ALFA RETURNS WILL BE OF 17.5815% MOST LIKELY, THIS MEANS THAT THE ALFA SIGNIFICANTLY OFFERS RETURNS OVER THE MARKET BECAUSE IS ALMOST DOUBLE THE RETURN. 
+
+CHECKING ALSO THE VALUE OF THE CI OF B1 WHICH ARE 1.35833 AND 2.44617 WE CAN USE THE LOWER VALUE TO CHECK IF IT GIVES HIGHER RETURN, AND GIVEN THE VALUES SHOWN BELOW, THE RETURNS IN THE LOWEST POSSIBLE VALUE OF BETA 1 THE RETURN WILL BE STILL HIGHER THAN THE RETURN OF THE MARKET.
+
+BUT IF WE ALSO USE THE B0 LOWEST VALUE OF THE 95% CI THEN THIS WILL BE EQUAL -0.04011. USING BOTH LOWEST VALUES IT SHOWS THAT THE RETURN WILL BE UNDER THE MARKET BECAUSE FROM A RETURN OF 10% THE ALFAA STOCK RETURN WILL BE 9.5723%.
+```{r}
+prediction1 = 1.90225 * 0.1 - 0.01541
+prediction1
+
+prediction2 = 1.35833 * 0.1 - 0.01541
+prediction2
+
+prediction3 = 1.35833 * 0.1 - 0.04011
+prediction3
+```
+
+
+4. HOW MUCH THE VARIANCE OF THE STOCK RETURNS CANNOT BE EXPLAINED BY THE VARIANCE OF THE MARKET RETURNS?
+
+THE R^2 OR THE COEFFICIENT OF DETERMINATION REPRESENTS THE VARIANCE OF THE STOCK THAT CAN BE EXPLAINED BY THE MARKET, SO THE PORTION THAT CANNOT BE EXPLAINED BY THE MARKET RETURNS IS 1-R^2 OR 1- 0.4576 WHICH MEANS THAT THE PORTION THAT CANNOT BE EXPLAINED IS 54.24% OF THE VARIANCE OF THE STOCK RETURN.

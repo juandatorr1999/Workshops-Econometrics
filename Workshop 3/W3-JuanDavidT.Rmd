@@ -1,0 +1,355 @@
+---
+title: "Workshop 3 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Feb 24 2021"
+output:
+  html_document:
+    df_print: paged
+---
+# Review of R objects
+
+In R any information is stored in objects. There are different data classes with its own data structure.
+Data structures
+1. Vectors
+2. Matrix
+3. Data frame
+4. Lists
+
+# Vectors
+A vector can be of any data type.
+Create a small collection of numbers
+To create a vector we use the function c() which mean combine ande values separated with commas.
+
+```{r}
+stock_1 <- c(1.3, 1.5, 1.28)
+stock_1
+
+```
+
+An integer vector creation in R with consecutive numbers
+
+```{r}
+stock_2 <- 1:10
+stock_2
+```
+
+Arithmetic operations with numeric vector
+```{r}
+stock_3 <- stock_1 - 1
+stock_3
+```
+
+Arithmetic operations with two or more vectors
+
+```{r}
+stock_4 <- stock_2 + stock_3
+```
+
+Sums all the stock_3 values to stock_2 consecutively as if stock 3 was of the same length than stock two
+```{r}
+stock_4
+```
+
+Atomic data classes
+
+Numeric
+```{r}
+x <- c(2,3.43,4.21)
+```
+
+Character
+```{r}
+x <- c("2", "hi", "Econometrics I")
+```
+
+Integer
+```{r}
+x <- c(2L,3L,4L)
+```
+
+Logical (True/False)
+```{r}
+x <- c(TRUE,FALSE,FALSE,TRUE)
+```
+
+Complex (Imaginary numbers)
+```{r}
+z <- c(5i,4i)
+```
+
+Access a particular element of a vector. First create a vector from 101-105.
+```{r}
+vector1 <- seq(from = 101, to = 105)
+vector1
+```
+
+Access the 3 element 
+```{r}
+vector1[3]
+```
+
+
+Access more than one element by its index we use a vector with the indexes we are looking to access
+```{r}
+vector1[c(1,3,5)]
+```
+
+
+To change a certain value of an index
+```{r}
+vector1[2] <- 109
+vector1
+```
+
+Displays horizontal although they are considered as vertical
+```{r}
+vector2 <- seq(1,100)
+vector2
+```
+
+# Matrix
+
+Matrices are vectors with dimensions
+Use the function matrix() specifying the number of rows with nrow and the number of columns with ncol.
+
+```{r}
+matrix(1:4, nrow = 2, ncol = 2)
+```
+
+Create a matrix joining 2 or more vectors with rbind (vectors as rows) or cbind(vectors as columns)
+
+```{r}
+
+stock1 <- c(1,2,3)
+stock2 <- c(90,91,92)
+
+matrix1 <-cbind(stock1,stock2)
+
+matrix1
+```
+
+```{r}
+matrix2 <-rbind(stock1,stock2)
+
+matrix2
+```
+
+Access an element on a matrix with [] the first element indicates the row number and the second the column number.
+
+Note: The indexes don't start with 0
+```{r}
+matrix1[1,2]
+```
+
+Refer to a whole column or a whole row by leaving empty the element you don't want to specify.
+```{r}
+matrix1[2,]
+```
+
+They have to be from the same class meaning numeric, string and so on.
+
+# Data Frames
+Data frames are used to store tabular data like excel. Data frames can store different classes of objects in different columns
+
+To create a data frame we use data.frame()
+```{r}
+prices <- data.frame(Stocks = c("ALSEA","AMXL","FEMSA"), price = c(9.4, 5.5, 7.8))
+prices
+```
+
+See the dimensions with dim(). Rows columns dimensions
+```{r}
+dim(prices)
+```
+
+Create data frame from an existing matrix with as.data.frame()
+```{r}
+my.matrix <- matrix(1:4, nrow = 2, ncol = 2)
+my.df <- as.data.frame(my.matrix)
+class(my.df)
+```
+
+The rbind and cbind can also be used in data frames
+```{r}
+prices.df <- prices
+prices.df <- cbind(prices.df, behavior=c("up", "down", "up"))
+prices.df
+```
+
+
+Data frames have attributes
+```{r}
+attributes(prices.df)
+```
+
+It has 3 attributes
+You can change the name of the columns using colnames
+```{r}
+colnames(prices.df) <- c("ALSEA","AMXL","FEMSA")
+attributes(prices.df)
+```
+
+Get the colnames and rownames
+```{r}
+colnames(prices.df)
+rownames(prices.df)
+```
+
+Change the name of an specific column with the index
+```{r}
+colnames(prices.df)[3] <- "up-down"
+
+colnames(prices.df)
+```
+
+# Creating an object from another object
+
+Use the assignment operator <-
+
+Add library quantmod to get information using getsymbols
+```{r}
+library(quantmod)
+getSymbols("AAPL", from="2020-08-01", src="yahoo", periodicity="daily")
+
+```
+
+Last rows of AAPL
+```{r}
+tail(AAPL)
+```
+
+
+AAPL is an xts object, which is similar to a data frame but with a time/date index. 
+Use $ to refer to an especific column
+
+Getting the adjusted prices of AAPL
+```{r}
+AdPrice <- AAPL$AAPL.Adjusted
+AdPrice
+```
+
+Get the natural logarithm of the adjusted prices
+```{r}
+lnAPPL <- log(AdPrice)
+```
+
+# Introduction to Hypothesis testing
+
+Download monthly data of AAPL and MSFT
+```{r}
+library(quantmod)
+getSymbols(c("AAPL", "MSFT"), from="2016-01-01", periodicity="monthly", src="yahoo")
+
+```
+
+Calculate the continuously compounded returns
+```{r}
+AAPL <- na.omit(AAPL)
+MSFT <- na.omit(MSFT)
+r_AAPL <- diff(log(Ad(AAPL)))
+r_MSFT <- diff(log(Ad(MSFT)))
+head(r_AAPL, 5)
+```
+
+```{r}
+head(r_MSFT, 5)
+```
+
+
+# 3.1 T-test for AAPL
+
+```{r}
+# a) Null and alternative hypothesis
+# H0: mean(r_AAPL) = 0
+# Ha: mean(r_AAPL) > 0
+
+# b)
+# Calculation of the standard error
+se_AAPL <- sd(r_AAPL, na.rm = TRUE) / sqrt(nrow(r_AAPL) - 1)
+cat("Standard error r_AAPL" , se_AAPL,"\n")
+```
+```{r}
+# c) 
+# Calculation of the t-value. The 0 below is the H0
+t_val_AAPL <- (mean(r_AAPL, na.rm=TRUE) - 0) / se_AAPL
+cat("t-value AAPL = ", t_val_AAPL)
+```
+d) CONCLUSION OF THE T-TEST
+AS THE T-VALUE IS 2.525702 THIS MEANS THAT THERE IS ENOUGH EVIDENCE AGAINST THE NULL HYPOTHESIS WHICH MEANS THAT THE NULL HYPOTHESIS IS REJECTED. 
+
+WHEN THE T-VALUE IS BETWEEN -2 AND 2 IT MEANS THE NULL HYPOTHESIS CANNOT BE REJECTED BUT BECAUSE THE VALUE IS GREATER THAN 2 THEN IT CAN BE REJECTED. 
+THIS MEANS THAT THE AAPL MEAN CC RETURNS ARE DIFFERENT FROM 0.
+
+
+# 4.1 Running the T-test function from R
+```{r}
+ttest_AAPL <- t.test(as.numeric(r_AAPL), alternative = "greater")
+print(ttest_AAPL$statistic)
+```
+
+THE T-VALUE IS THE SAME AS THE ONE CALCULATED ABOVE SO THIS MEANS THAT THE NULL HYPOTHESIS CAN BE REJECTED AND THE CALCULATIONS WERE CORRECTLY DONE.
+
+# 3.2 T-test for MSFT
+
+```{r}
+# a) NULL AND ALTERNATIVE HYPOTHESIS
+# H0: mean(r_MSFT) = 0
+# Ha: mean(r_MSFT) > 0
+
+# b) Calculation of the standard error
+se_MSFT <- sd(r_MSFT, na.rm = TRUE) / sqrt(nrow(r_MSFT) - 1)
+cat("Standard error r_MSFT" , se_MSFT,"\n")
+
+```
+
+```{r}
+# c) Calculate the t-statistic
+t_val_MSFT <- (mean(r_MSFT, na.rm=TRUE) - 0) / se_MSFT
+cat("t-value AAPL = ", t_val_MSFT)
+```
+
+d) Conclusions of the t-test
+SINCE THE T VALUE IS GREATER THAN 2 THIS MEANS THAT THE NULL HYPOTHESIS CAN BE REJECTED WHICH MEANS THAT THE MEAN CC RETURNS FROM MICROSOFT ARE GREATER THAN 0 WHICH IS THE ALTERNATIVE HYPOTHESIS, ALTHOUGH IT CAN ALSO BE THAT THE CC RETURNS BE LOWER THAN 0 BECAUSE IT IS ANOTHER ALTERNATIVE HYPOTHESIS.
+SINCE IT IS NEEDED FOR THE T VALUE TO BE BETWEEN -2 AND 2 TO NOT REJECT THE NULL HYPOTHESIS AND THIS DIDN'T HAPPEND THEN WE CAN SAY THAT THE NULL HYPOTHESIS IS REJECTED.
+
+# 4.2 Calculation of t-test using the t.test function from R
+```{r}
+ttest_MSFT <- t.test(as.numeric(r_MSFT), alternative = "greater")
+print(ttest_MSFT$statistic)
+```
+
+IT GAVE THE SAME ANSWER WHICH MEANS THAT THE CALCULATIONS WERE DONE CORRECTLY.
+
+# 5. T-test to compare both stocks returns
+
+Calculations
+```{r}
+# Null hypothesis and alternative hypothesis
+# H0: mean(r_AAPL) - mean(r_MSFT) = 0
+# Ha: mean(r_AAPL) - mean(r_MSFT) <> 0
+
+# Calculations of the t_value
+N <- nrow(r_AAPL)-1
+se_both <- sqrt( (1/N) * (var(r_AAPL, na.rm=TRUE) + var(r_MSFT, na.rm=TRUE)))
+t_value_both <- (mean(r_AAPL, na.rm=TRUE) - mean(r_MSFT, na.rm=TRUE) - 0) / se_both
+cat("t-value = ", t_value_both, "\n")
+```
+
+Using the t.test function
+```{r}
+ttest <- t.test(as.numeric(r_AAPL), as.numeric(r_MSFT), paired = FALSE, var.equal = FALSE)
+names(ttest)
+```
+
+Get the t_value with the statistic function
+```{r}
+cat("t-vale from t.test =", ttest$statistic,"\n")
+```
+
+Get the p value with the p.value column
+```{r}
+cat("p-value = ", ttest$p.value)
+```
+
+SICNE THE T-VALUE IS BETWEEN -2 AND 2 THEN WE CANNOT REJECT THE HYPOTHESIS FUNCTION, MEANING THAT THERE IS NO DIFFERENCE BETWEEN THE AVERAGE CC RETURNS FROM AAPL AND MSFT, THEY ARE STATISTICALLY EQUAL. THE P_VALUE IS GREATER THAN 0.05, SINCE THE SMALLER THE VALUE OF P THE STRONGER THERE IS EVIDENCE TO REJECT H0, WHICH MEANS THAT THE NULL FUNCTION CAN'T BE REJECTED.
+

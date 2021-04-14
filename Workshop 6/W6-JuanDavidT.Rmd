@@ -1,0 +1,167 @@
+---
+title: "Workshop 6 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Mar 24 2021"
+output:
+  html_document:
+    df_print: paged
+---
+# General directions for this Workshop
+```{r}
+rm(list=ls())
+options(scipen=999)
+```
+
+# Data collection
+Download data of ALFAA
+```{r}
+
+library(quantmod)
+
+
+getSymbols(c("ALFAA.MX", "^MXX"), from="2016-01-01", to= "2021-01-31", periodicity="monthly", src="yahoo")
+```
+
+Merge both stock adjusted prices
+```{r}
+adjprices<-Ad(merge(ALFAA.MX,MXX))
+```
+
+
+# Return calculation
+Calculation of CC Returns 
+```{r}
+returns <- diff(log(adjprices)) 
+returns <- na.omit(returns)
+
+colnames(returns) <- c("ALFAA", "MXX")
+```
+
+# Regression Model
+Regression model and the summary
+```{r}
+reg <- lm(returns$ALFAA ~ returns$MXX)
+
+sumreg<-summary(reg)
+sumreg
+```
+USING THIS OUTPUT, CALCULATE THE 95% CONFIDENCE INTERVALS FOR BETA0 AND BETA1 AND PROVIDE A CLEAR INTERPRETATION OF THESE INTERVALS.
+```{r}
+#B0
+b0_lowCI = -0.01541-1.96*0.01235
+b0_lowCI
+b0_upCI = -0.01541+1.96*0.01235
+b0_upCI
+```
+THIS MEANS THAT WITH A 95% CONFIDENCE THE EXCESS OF THE MARKET OF THE STOCK ALFAA WILL BE BETWEEN -0.039616 AND 0.008796 WHICH MEANS THAT THE MEXICAN MARKET PERFORMS BETTER BECAUSE IT IS MOSTLY A NEGATIVE EXCESS.
+
+
+```{r}
+#B1
+b1_lowCI = 1.90225-1.96*0.27196
+b1_lowCI
+b1_upCI = 1.90225 +1.96*0.27196
+b1_upCI
+```
+THIS MEANS THAT WITH A 95% CONFIDENCE THE MARKET RISK OF THE STOCK ALFAA WILL BE BETWEEN 1.369208 AND 2.435292 WHICH MEANS THAT THERE IS STATISTICAL EVIDENCE TO AFIRM THAT THE ALFAA STOCK IS RISKIER THAN THE MARKET BECAUSE IT IS BETWEEN 1.37 AND 2.43.
+
+# Monte Carlo simulation for future market returns
+
+THE MONTE CARLO SIMULATION IS USED TO MODEL DIFFERENT OUTCOMES OR DIFFERENT POSSIBILITIES FROM A SITUATION. IT IS ALSO A WAY IN WHICH THE RISK CAN BE UNDERSTOOD, AS WELL AS UNDERSTAND THE UNCERTAINTY OF A PREDICTION. 
+
+IT SIMULATES MULTIPLE PROBABILITY WORLDS TO MODEL THE REAL LIFE IN A MORE ACCURRATE WAY, IT USES RANDOM VARIABLES TO PERFORM A MORE ACCURATE SIMULATION. THIS IS APPLIED TO MAKE A DECISION BASED ON THE RISK THE PEOPLE ARE WILLING TO TAKE IN ORDER TO GET THE OUTCOME THEY WANT OR NEED.
+
+SOURCE: https://www.investopedia.com/terms/m/montecarlosimulation.asp
+
+# Base-case scenario
+
+First we calculate mean and standard deviation of rMXX
+```{r}
+mean_rMXX <- mean(returns$MXX, na.rm=TRUE) 
+sd_rMXX <- sd(returns$MXX, na.rm=TRUE)
+```
+
+Simulate random data of a normal distribution with the mean and standard deviation calculated. THe simulation will be done with 1000 possible years
+```{r}
+years = 1000
+rMXX_sim <- rnorm(n=12*years, mean = mean_rMXX, sd=sd_rMXX)
+```
+
+Histogram for the data
+```{r}
+hist(rMXX_sim)
+```
+
+# Pessimistic and optimistic scenarios
+
+For the pessimistic scenario the mean will be 0.1 standard deviations less and the standard deviation will be 10% higher.
+```{r}
+mean_rMXX_pes <- mean_rMXX-0.1*sd_rMXX
+sd_rMXX_pes <- sd_rMXX*1.1
+
+rMXX_sim_pes <- rnorm(12*years, mean = mean_rMXX_pes, sd=sd_rMXX_pes)
+
+hist(rMXX_sim_pes)
+```
+
+For the optimistic scenario the mean will be 0.1 standard deviations higher and the standard deviation will be 10% lower than the original.
+```{r}
+mean_rMXX_op <- mean_rMXX+0.1*sd_rMXX
+sd_rMXX_op <- sd_rMXX*.9
+
+rMXX_sim_op <- rnorm(n=12*years, mean = mean_rMXX_op, sd=sd_rMXX_op)
+
+hist(rMXX_sim_op)
+```
+
+Get the simulated annual returns for the 1000 years and then get the average
+```{r}
+simulated_data = data.frame(cbind(rMXX_sim,rMXX_sim_pes,rMXX_sim_op))
+
+simulated_data$year <- rep(seq(1:1000),each=12)
+```
+
+Compute the annual return  for every year using the functions groupby and summarize.
+```{r}
+library(dplyr)
+annual_returns <- simulated_data %>%
+   group_by(year) %>%9
+   summarise(a_rMXX_sim= sum(rMXX_sim),
+             a_rMXX_sim_pes= sum(rMXX_sim_pes),
+             a_rMXX_sim_op = sum(rMXX_sim_op)) 
+
+head(annual_returns)
+```
+
+Calculate the average return of the 1000 years 
+```{r}
+annual_forecast_returns <- apply(annual_returns[,2:4],2,mean)
+annual_forecast_returns
+```
+
+Calculate the annual volatility or the standard deviation 
+```{r}
+sd_annual_forecast_returns <- apply(annual_returns[,2:4],2,sd)
+sd_annual_forecast_returns
+```
+
+# Estimate the prediction for the stock return
+
+Estimation annual expected return 
+```{r}
+base_ALFA <- sumreg$coefficients[1,1] + sumreg$coefficients[2,1]*annual_forecast_returns[1]
+base_ALFA
+```
+
+Pessimistic Forecast
+```{r}
+pes_ALFA <- sumreg$coefficients[1,1] + sumreg$coefficients[2,1]*annual_forecast_returns[2]
+pes_ALFA
+```
+
+Optimistic forecast
+```{r}
+op_ALFA <- sumreg$coefficients[1,1] + sumreg$coefficients[2,1]*annual_forecast_returns[3]
+op_ALFA
+```
+

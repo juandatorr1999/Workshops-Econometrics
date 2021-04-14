@@ -1,0 +1,230 @@
+---
+title: "Workshop 5 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Mar 10 2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+Download the stock data from GRUMA
+```{r}
+library(quantmod)
+
+getSymbols(c("GRUMAB.MX", "^MXX"), from="2017-01-01", to="2020-03-11", periodicity="daily", src="yahoo")
+```
+
+Show 5 first values of GRUMA
+```{r}
+head(GRUMAB.MX,5)
+```
+
+
+
+Show 5 first values of MXX\
+```{r}
+head(MXX,5)
+```
+
+
+Visualize the daily stocks prices for GRUMA
+
+```{r}
+plot(GRUMAB.MX$GRUMAB.MX.Adjusted)
+```
+
+
+
+Visualize the daily stocks prices for MXX
+```{r}
+plot(MXX$MXX.Adjusted)
+```
+
+
+Calculate CC Returns from GRUMA and plot them
+```{r}
+r_GRUMA <- diff(log(Ad(GRUMAB.MX)))
+plot(r_GRUMA)
+```
+
+
+Calculate CC Returns of MXX and plot them
+```{r}
+r_MXX <- diff(log(Ad(MXX)))
+plot(r_MXX)
+```
+
+
+
+Visualize the linear relationship between Gruma and MXX
+
+```{r}
+plot(as.numeric(r_MXX), as.numeric(r_GRUMA), type = "p", xlab = "r_MXX", ylab = "r_GRUMA", main = "Scatter plot between Gruma returns and Market returns")
+abline(lm(r_GRUMA~r_MXX), col="red")
+```
+
+
+Market Regression Model for GRUMA in specific dates
+```{r}
+# Change the dates and assign them to a temporal value
+r_GRUMA_bef <- r_GRUMA["2017-01-02/2020-03-06"]
+
+
+ie <- r_GRUMA[1:799,]
+
+# Do the same for the returns of the market
+r_MXX_bef <- r_MXX["2017-01-02/2020-03-06"]
+
+# The lm() is used to create a linear regression
+bef_bm <- lm(r_GRUMA_bef ~ as.vector(r_MXX_bef))
+
+
+class(bef_bm)
+
+```
+
+Visualize content of the linear regression model
+```{r}
+names(bef_bm)
+```
+
+Access the names and visualize the coefficients
+```{r}
+summ_bef_bm <- summary(bef_bm)
+
+summ_bef_bm$coefficients
+```
+
+What you can say about the market risk of GRUMA? EXPLAIN.
+THE MARKET RISK IS THE B1 WHICH IS 0.5949982876 THIS MEANS THAT THE RELATION BETWEEN THE STOCK IS POSITIVE BUT WHEN THE MARKET INCREASES BY ONE UNIT THE GRUMA STOCK INCREASE ALMOST HALF. THE STD ERROR SHOWS THEN THE MOVEMENT OR VARIATION THAT IT COULD HAVE, IN THIS CASE IS 0.0500974110 SO WITH THIS VALUE WE CAN CALCULATE THE 95% CONFIDENCE INTERVALS FROM B1 AND THEY WILL BE APROXIMATELY 0.5 - 0.7 WHICH MEANS THAT THE MARKET RISK OF GRUMA IS LOW. WITH 95% OF CONFIDENCE IT CAN BE SAID THAT THE VALUE OF B1 GOES FROM 0.5 TO 0.7 APROXIMATELY.
+
+
+What is the regression equation of this model? WRITE it as comments in your R script.
+ 
+r_GRUMA = 0.5949982876 * r_MXX -0.0002884309
+
+
+
+
+Show 5 last values of MXX
+```{r}
+tail(r_MXX, 5)
+```
+
+
+Show 5 last values of GRUMA
+```{r}
+tail(r_GRUMA, 5)
+```
+
+
+Predict with the value of the MXX value of monday
+```{r}
+predict(bef_bm, newdata = data.frame(r_MXX_bef = -0.06638094))
+```
+# 3 Predicting monthly stock return of GRUMA for February and March 2020 (OPTONAL)
+
+Downloading data from GRUMA and MXX
+```{r}
+rm(list=ls())
+library(quantmod)
+
+getSymbols(c("GRUMAB.MX", "^MXX"), from="2017-01-01", to= "2020-03-31", periodicity="monthly", src="yahoo")
+```
+Calculate the CC Returns for both and create temporal values with the values to January 2020
+```{r}
+r_GRUMA <- na.omit(diff(log(Ad(GRUMAB.MX))))
+r_MXX <- na.omit(diff(log(Ad(MXX))))
+r_GRUMA_temp = r_GRUMA["2017-01-01/2020-01-31"]
+r_MXX_temp = r_MXX["2017-01-01/2020-01-31"]
+```
+Use lm to do the linear regression between the two temporal values
+```{r}
+
+linear_reg = lm(r_GRUMA_temp ~ as.vector(r_MXX_temp))
+linear_reg_summ <- summary(linear_reg)
+linear_reg_summ$coefficients
+```
+The real return values for MXX are:
+-0.0651972556 Feb MXX
+-0.1789122205 March MXX
+
+Prediction using predict function
+```{r}
+#Predict
+predict(linear_reg, newdata = data.frame(r_MXX_temp = -0.0651972556))
+predict(linear_reg, newdata = data.frame(r_MXX_temp = -0.1789122205))
+
+```
+
+Manual prediction using the values of the coefficients
+```{r}
+#Manual
+0.857077313*-0.0651972556-0.006312876
+0.857077313*-0.1789122205-0.006312876
+```
+Daily Coefficients
+b0: -0.0002884309  
+b1: 0.5949982876
+
+Monthly Coefficients
+b0: -0.006312876
+b1: 0.857077313
+
+USING THE DAILY MODEL GAVE LOWER VALUES FOR THE BOTH COEFFICIENTS MAYBE BECAUSE THERE HAS BEEN MORE VOLATILE DAYS WHICH CANNOT BE SEEN IN THE MONTHLY MODEL. BUT THE STANDARD ERROR IS MUCH HIGHER IN THE MONTHLY MODEL, THIS MAYBE IS BECAUSE THE STOCK HAS MORE RISK IF YOU SEE IT THROUGH EVERY MONTH AND THE CONFIDENCE INTERVAL ARE ALSO MUCH HIGHER IN THE MONTHLY MODEL. 0.657 - 1.057 ARE THE APPROXIMATE CI WITH 95% CONFIDENCE.
+
+# Estimating moving betas of the Market Model
+
+Remove the environment and download data from GRUMA from 2010 to 2020
+```{r}
+rm(list=ls())
+
+getSymbols(c("GRUMAB.MX", "^MXX"), from="2010-01-01",to="2020-03-31", periodicity="monthly", src="yahoo")
+```
+
+Calculate the CC Returns
+```{r}
+r_GRUMA <- diff(log(Ad(GRUMAB.MX)))
+r_MXX <- diff(log(Ad(MXX)))
+```
+
+
+Load the roll library and calculate the B1 and B0 with a time window of 24 months 
+```{r}
+library(roll)
+#Change it to vectors
+rollmktmdl <- roll_lm(as.vector(r_MXX), as.vector(r_GRUMA), width = 24)
+
+class(rollmktmdl)
+```
+
+Names of the list
+```{r}
+names(rollmktmdl)
+```
+
+Gather the coefficients and assign them to a list
+```{r}
+rolling_betas <- rollmktmdl$coefficients 
+
+#Change the column names
+colnames(rolling_betas) <- c("b0", "b1")
+```
+
+Change the value type to time series
+```{r}
+rolling_betas <- xts(rolling_betas, order.by = index(r_GRUMA))
+```
+
+Plot the Beta 1 of GRUMA for the 24 month window
+```{r}
+plot(rolling_betas$b1, main = "Moving beta1 for Gruma stock", ylab = "Beta 1")
+```
+THE B1 IS ALSO KNOWN AS THE MARKET RISK FOR GRUMA STOCK SO THIS GRAPH SHOWS THAT THE VALUES OF B1 WHERE ALWAYS POSITIVE. THIS ALSO SHOWS THAT THERE HAS BEEN VERY FEW 24 MONTH WINDOWS IN WHICH THE BETA ONE HAS BEEN ABOVE 1. THIS MEANS THAT THE MOST OF THE TIME THE GRUMA STOCK HAS BEEN A LOW RISK AND ONLY FROM JANUARY 2012 TO THE  AUGUST 2012, JANUARY 2013 TO MARCH 2013, MAY 2018 TO AUGUST 2018 THE GRUMA STOCK HAS HAD A POSITIVE B1 WHICH MEAN IT HAD A HIGHER RISK. THIS ALSO MEANS THAT MOST OF THE TIME FOR A CHANGE OF ONE UNIT OF THE MARKET THE GRUMA HAS CHANGE LESS THAN 1 TIMES.
+
+```{r}
+plot(rolling_betas$b0, main = "Moving beta0 for Gruma stock", ylab = "Beta 0")
+
+```
+THIS SHOWS THAT THE EXCESS OF THE MARKET HAS BEEN MOSTLY POSITIVE, SINCE FEBRUARY 2012 TO AUGUST 2017 AND FROM JANUARY TO MARCH OF 2020 THIS MEANS THAT THERE HAS BEEN BIGGER RETURNS THAN THE ONES OF THE MARKET WITH THIS STOCK GRUMA. THERE HAVE BEEN NEGATIVE MONTHS AS WELL FROM AUGUST 2017 TO DECEMBER 2019 WHICH MEAN THAT AT THE TIME THE MARKET WAS HAVING BETTER PERFORMANCE AND THE EXCESS WAS NEGATIVE.

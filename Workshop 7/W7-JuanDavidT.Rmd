@@ -1,0 +1,306 @@
+---
+title: "Workshop 7 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Apr 7 2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+# General directions for this Workshop
+
+Remove environment and avoid scientific notation
+```{r}
+rm(list=ls())
+options(scipen=999)
+```
+
+# Data management
+Data management in Finance is very important. Having a cleaned and well structured dataset is a must when you analyse data.
+
+# Data set structures
+- Time-series: many periods for one subject only
+```{r}
+##        p_stock1 r_stock1 p_stock2 r_stock2
+## 2014m1       10     0.02       20     0.01
+## 2014m2       11     0.10       21     0.05
+```
+
+- Cross-sectional: only one period and many subjects
+```{r}
+##     Ticker   ROA ATO ProfitMargin
+## 1 ALFAA.MX 0.023 0.9         0.15
+## 2  AMXL.MX 0.015 1.1         0.10
+```
+
+- Panel-data: It's a combination of time-series and cross-sectional
+```{r}
+##      Ticker quarter  ROA ATO ProfitMargin
+## 1  ALFAA.MX  2014q1  0.2 1.1         0.17
+## 2  ALFAA.MX  2014q2 0.21 1.2         0.16
+## 3       ...     ...  ... ...          ...
+## 4 BIMBOA.MX  2014q1 0.15 0.8         0.10
+## 5 BIMBOA.MX  2014q2 0.20 0.9         0.05
+## 6       ...     ...  ... ...          ...
+## 7 BIMBOA.MX  2017q1 0.15 1.1         0.09
+```
+
+
+#Introduction to data management
+
+
+
+Downloading excel file and asignning it to the dataset variable
+```{r}
+# Load the package to rad excel
+library(readxl)
+
+download.file("http://www.apradie.com/datos/datamx2020q4.xlsx",
+              "dataw6.xlsx", mode="wb")
+dataset <- read_excel("dataw6.xlsx")
+```
+
+Download IPyC data
+```{r}
+library(quantmod)
+getSymbols("^MXX", from="2000-01-01", to= "2019-12-31",
+            periodicity="monthly", src="yahoo")
+```
+
+Collapse the data set from monthly to quarterly
+
+```{r}
+#Use aggregate to collapse from monthly to quarterly and the function last to keep the last market index per quarter
+QMXX<-aggregate(MXX,as.yearqtr,FUN="last")
+
+#Convert the object to xts and just keep the adjusted prices
+QMXX<-as.xts(Ad(QMXX))
+
+#Create another quarterly data set with the index of the first month
+QMXX2<-to.quarterly(MXX,indexAt='startof')
+index(QMXX)<-index(QMXX2)
+
+#Rename the column
+colnames(QMXX) <- "MXXindex"
+```
+
+
+Calculate cc returns of the market
+```{r}
+QMXX$MXXreturns <- diff(log(QMXX))
+```
+
+Merge both data, to do so both have to have a common column which is the quarter
+```{r}
+
+# Data frame for the MXX quarterly data set
+# The core data function extracts the data of an object without format
+QMXX.df<-data.frame(quarter=index(QMXX),coredata(QMXX))
+
+#Change the type of the column quarter as Date
+dataset$quarter<-as.Date(dataset$quarter)
+
+
+#Many to one merge
+dataset<-merge(dataset,QMXX.df,by="quarter")
+# Now the data set is for all firms quarters, and the MXX index and return is merged for each firm.
+
+```
+
+Define the dataset as a panel data
+```{r}
+library(plm)
+datasetp <- pdata.frame(dataset, index= c("firmcode","quarter"))
+```
+
+# Data cleaning Extreme values
+
+IF there are extreme values in one or more independent variable used for a regression model the coefficients can not be reliable and may be biased.
+
+The BMR or Book Market Ratio is the indicator of a company's value. This compares the firm book value to its market value. A firm's market value is calculated multiplying the price of each share and the number of shares. The book value of the company is calculated looking at the historical  cost, accounting value or the difference between of the assets and liabilities. A company looks for a low BMR because they want for the market value to be higher than the book value as it is the aggregate value of the company, what investors perceive.
+
+Calculations of the book value and the market value also known as the market cap
+```{r}
+datasetp$bookvalue= datasetp$totalassets - datasetp$totalliabilities
+
+#For the calculation of the market value is necessary to use the stock price and not the adjusted as the adjusted takes into account the dividends and the splits.
+datasetp$marketvalue =  datasetp$originalhistoricalstockprice*datasetp$sharesoutstanding
+```
+
+Calculation of BMR
+```{r}
+datasetp$bmr= datasetp$bookvalue / datasetp$marketvalue
+```
+
+If the BMR = 1 then this means that the market value and the book value are the same and the company hasn't created value beyond the book value
+
+If the BMR > 1 then this means that the book value is greater than the market value which means that the firm lost shareholders value and the and might be in bankrupt risk.
+
+If the BMR < 1 then this means that the market value of the firm is higher than the book value which means that the shareholders value is higher. Firms are always looking to maximize the shareholder value because it is the aggregate value of the company, the intangible assets such as prestige, quality and innovation.
+
+The relationship between BMR and stock return has been very debated. 
+
+Sometimes firms with high BMR  have positive stock returns because they have good and strong financials. 
+
+Researchers also find out that BMR influences earnings per share. There are cases that firms with low BMR do not experience significant high stock returns because the high expectations of the investors.
+
+In the following graphs we can see the relationship from BMR and stock return for the mexican firms:
+
+Keep only the active firms
+```{r}
+datasetpa<-datasetp[datasetp$status=="active",]
+```
+
+Run histogram on BMR
+```{r}
+hist(datasetpa$bmr, main="Histogram of the bmr data", xlab="bmr", col="dark blue")
+```
+
+Plot the outliers of BMR
+```{r}
+boxplot(datasetpa$bmr)
+```
+
+```{r}
+outlier_values <- boxplot.stats(datasetpa$bmr)$out 
+```
+
+Load Library robusthd which has the winsorsize function.
+Winsorization is the transformation in statistics of limiting the extreme values in the data so it reduces the effect of outliers.
+```{r}
+library(robustHD)
+```
+
+Apply winsor to BMR at 2 percentile level
+```{r}
+winsbmr <- winsorize(na.omit(datasetpa$bmr), standarized= "True", prob= 0.98, return= "data")
+
+```
+
+Winsorization is the process where the non-missing values of a variable (x) are ordered and generate another variable identical to x except that the highest and lowest values are replaced with the next value inwards.
+
+Histogram with the winsorized data
+```{r}
+hist(winsbmr, main="Histogram of the winsorized bmr data",xlab="bmr", col="dark blue")
+```
+
+# Simple and Multiple Regression Models 
+
+Mode 1 A market model for all quarters of ALFAA
+
+```{r}
+#Get all the cc returns
+datasetpa$stockreturn <- log(datasetpa$adjustedstockprice / (lag(datasetpa$adjustedstockprice, 1)))
+
+#Create a new object for ALFAA
+ALFAAdata<-as.data.frame(datasetpa[(datasetpa$firm=="ALFAA"),])
+
+#Make the regression
+reg1 <- lm(ALFAAdata$stockreturn ~ ALFAAdata$MXXreturns)
+s_reg1<- summary(reg1)
+s_reg1
+```
+
+Calculation of the confidence intervals
+```{r}
+
+B0 <- s_reg1$coefficients[1,1]
+STDERRORB0 <- s_reg1$coefficients[1,2]
+minB0 <- B0  - (2* STDERRORB0 )
+maxB0 <- B0  + (2* STDERRORB0 )
+
+cat("The B0 confidence interval goes from about ", minB0, "to", maxB0)
+```
+Use the exact t value to get the 95% confidence interval
+```{r}
+# Instead of using the critical value of t=2, I can use the exact t value that
+#  gives me the 95% confidence intervale:
+t_critical_value <- abs(qt(0.025,reg1$df.residual))
+t_critical_value
+```
+
+Exact confidence intervals
+```{r}
+minB0 <- B0  - (t_critical_value* STDERRORB0 )
+maxB0 <- B0  + (t_critical_value* STDERRORB0 )
+
+cat("The exact B0 confidence interval goes from", minB0, "to", maxB0)
+```
+
+```{r}
+# To estimate the 95% confidence interval for B1:
+B1<- s_reg1$coefficients[2,1]
+STDERRORB1 <- s_reg1$coefficients[2,2]
+minB1 <- B1  - (t_critical_value* STDERRORB1 )
+maxB1 <- B1  + (t_critical_value* STDERRORB1 )
+
+cat("The B1 confidence interval goes from", minB1, "to", maxB1)
+```
+
+
+2. Run the same model but with a new explanatory variables of BMR
+```{r}
+reg2 <- lm(ALFAAdata$stockreturn ~ ALFAAdata$MXXreturns + ALFAAdata$bmr)
+
+s_reg2 <- summary(reg2)
+s_reg2
+```
+
+The B2 BMR represents the sensitivity of stock returns to changes in book to market ratio.
+The B0 is the expected value of stock return if both independent variables are 0.
+
+Calculation of 95% confidence interval B1
+```{r}
+B1<- s_reg2$coefficients[2,1]
+STDERRORB1<- s_reg2$coefficients[2,2]
+minB1 <- B1  - (t_critical_value* STDERRORB1  )
+maxB1 <- B1  + (t_critical_value* STDERRORB1 )
+
+cat("The confidence interval of beta1 goes from", minB1, "to", maxB1)
+```
+
+After considering the effect of BMR, the effect of market returns is still significant and positive since the CI goes from 1.2260915 to 1.9357427.
+
+After considering the effect of the market return, the effect of BMR on stock quarterly returns of ALFAA is negative but not significant.
+
+Calculation of 95% confidence interval B2
+```{r}
+B2<- s_reg2$coefficients[3,1]
+STDERRORB2<- s_reg2$coefficients[3,2]
+minB2 <- B2  - (t_critical_value* STDERRORB2  )
+maxB2 <- B2  + (t_critical_value* STDERRORB2 )
+
+cat("The 95%C.I. of beta2 goes from", minB2, "to", maxB2)
+```
+
+After considering the effect of the market return the effect of the BMR on stock return is negative but not significative as the CI from  from -0.0591572 to 0.0075785.
+
+Calculation 90% CI
+```{r}
+B2<- s_reg2$coefficients[3,1]
+STDERRORB2<- s_reg2$coefficients[3,2]
+# I calculate the critical t value to get the 90% C.I. 
+t_critical_value90 <- abs(qt(0.050,reg2$df.residual))
+
+minB2 <- B2  - (t_critical_value90* STDERRORB2  )
+maxB2 <- B2  + (t_critical_value90* STDERRORB2 )
+
+cat("The 90%C.I. of beta2 goes from", minB2, "to", maxB2)
+```
+
+Because the B2 90% CI ends in positive values it cannot be said that beta 2 is significantly negative at 90% CI. It is expected that B2 is negative because they usually have a negative relationship that when BMR decreases the stock return increases.
+
+Calculation of the B0 95% CI 
+```{r}
+B0 <- s_reg2$coefficients[1,1]
+STDERRORB0 <- s_reg2$coefficients[1,2]
+minB0 <- B0  - (2* STDERRORB0 )
+maxB0 <- B0  + (2* STDERRORB0 )
+cat("The 95% C.I. of beta0 goes from", minB0, "to", maxB0)
+```
+
+When the market return and BMR are 0 then the expected stock return will be 2.069%. 
+
+When the regression model is multivariable: NOTE (AFTER CONSIDERING THE EFFECT OF THE OTHER INDEPENDENT VARIABLES)
+
+The beta 2 coefficient partially confirms the research that BMR and stock return are negatively related although it was no quite significant because the 95% and even the 90% confidence intervals showed that it can get positive values too.

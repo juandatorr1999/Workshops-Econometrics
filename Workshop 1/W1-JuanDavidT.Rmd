@@ -1,0 +1,311 @@
+---
+title: "Workshop 1 Financial Econometrics"
+author: "Juan David Torres"
+date: "Feb 10 2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Clear R Environment
+Clears the R environment and changes number notation
+```{r}
+#Remove environment variables
+rm(list=ls())
+
+# To avoid scientific notation
+options(scipen=999)
+
+```
+
+# Load quantmod library
+Load the quantmod library everytime the program starts
+
+```{r,warning=FALSE}
+library(quantmod)
+```
+
+# Downloading prices
+
+
+Use the getSymbols function to download the real data from Bitcoin
+```{r}
+getSymbols(Symbols=c("BTC-USD"), from="2017-01-01", src="yahoo", periodicity="daily")
+```
+
+
+# Showing the contents of Datasets
+Show the content of the first 5 datasets as it is already in the global environment
+```{r}
+head(`BTC-USD`,5)
+```
+
+
+Show the content of the last 5 datasets.
+```{r}
+tail(`BTC-USD`,5)
+```
+
+# Visualization Of Prices
+Plot Bitcoin price
+```{r}
+plot(`BTC-USD`$ `BTC-USD.Adjusted`)
+# plot(`BTC-USD`$ `BTC-USD.Adjusted`)
+```
+
+Better way to plot the price of BTC
+```{r}
+chartSeries(`BTC-USD`, theme=("white"))
+```
+
+# Data Cleaning
+A way to deal with empty values in the dataset by omitting NA
+<!-- https://rpubs.com/cdorante/ec2003_w1 -->
+```{r}
+`BTC-USD` <- na.omit(`BTC-USD`)
+```
+
+# Calculation of Financial Returns
+Create a new object and assign the adjusted prices of Bitcoin
+
+```{r}
+prices <- Ad(`BTC-USD`)
+```
+
+Assign a column name for the adjusted prices
+```{r}
+colnames(prices) <- "adj_price"
+```
+
+Adding Returns and Lags
+
+```{r}
+
+prices$lag1 <- lag(prices$adj_price, n=1)
+
+#Formula for the simple returns
+prices$R_a <- prices$adj_price / prices$lag1 -1  
+# Alternative
+prices$R_b <- prices$adj_price / lag(prices$adj_price, n=1) -1
+```
+
+Daily growth factor
+
+```{r}
+prices$GrowthR <- 1 + prices$R_a
+```
+
+
+Calculation of daily continuosly compounded returns
+
+```{r}
+prices$r_b <- log(prices$adj_price / prices$lag1)
+# or
+prices$r <- diff(log(prices$adj_price))
+# the result must be the same for both columns
+```
+
+Daily continuos compounded returns using simple returns
+```{r}
+prices$r_from_R <- log(1 + prices$R_a)
+```
+
+Simple daily returns using ccr
+```{r}
+prices$R_from_r <- exp(prices$r)-1
+```
+
+Check the first 5 rows
+```{r}
+head(prices, 5)
+
+```
+
+Plot R 
+```{r}
+plot(prices$R_a)
+```
+
+# Calculation of holding-period return
+Calculate the holding-period return using initial and ending prices
+
+```{r}
+n <- as.numeric(nrow(prices))
+
+price_0 <- as.numeric(prices$adj_price[1])
+price_n <- as.numeric(prices$adj_price[n])
+
+HPR1 <- (price_n / price_0) - 1
+cat("HPR1 = " ,HPR1)
+```
+
+Calculation of Holding-Period return using continuosly compounded returns
+
+```{r}
+sumr <- sum(prices$r, na.rm = TRUE)
+HPR2 <- exp(sumr) - 1
+```
+
+HPR1 and HPR2 are the same although they are done with different methodologies
+```{r}
+cat(HPR1,HPR2)
+```
+
+# Descriptive Statistics of financial returns
+Clear R environment
+
+```{r}
+rm(list = ls())
+```
+
+Gather Information from the Starbucks stock price
+
+```{r}
+getSymbols(Symbols = "SBUX", from="2008-01-01", periodicity="monthly", src="yahoo")
+```
+
+Calculation of continuosly compound monthly returns
+```{r}
+returns.df <- as.data.frame((diff(log(Ad(SBUX)))))
+colnames(returns.df) <- "r_SBUX"
+```
+# Mean, std deviation and variance of cc returns
+Gather statistical information, mean, std deviation and variance of cc monthly returns 
+```{r}
+summary(returns.df)
+```
+
+After installing the package load it
+```{r}
+library(PerformanceAnalytics)
+```
+
+Now we can use the function stats
+```{r}
+table.Stats(returns.df$r_SBUX)
+```
+Also the following functions to calculate
+```{r}
+mean_r_SBUX <- mean(returns.df$r_SBUX, na.rm=TRUE) # arithmetic mean
+sd_r_SBUX <- sd(returns.df$r_SBUX, na.rm=TRUE) # standard deviation
+var_r_SBUX <- var(returns.df$r_SBUX, na.rm=TRUE) # variance
+```
+
+Print Arithmetic Mean
+```{r}
+cat("Mean =", mean_r_SBUX)
+```
+
+Print Standard deviation
+```{r}
+cat("Standard deviation = ", sd_r_SBUX)
+```
+
+Print Variance
+```{r}
+cat("Variance = ",var_r_SBUX)
+```
+
+# Mean, std deviation and variance of simple returns
+Calculation of the mean, std deviation and variance of simple monthly returns of SBUX
+```{r}
+returns.df$R_SBUX <- SBUX$SBUX.Adjusted/ lag(SBUX$SBUX.Adjusted, n=1) - 1
+
+table.Stats(returns.df$R_SBUX)
+```
+
+Print arithmetic mean using R
+
+```{r}
+mean(returns.df$R_SBUX,na.rm=TRUE)
+```
+
+
+Print std deviation using R
+```{r}
+sd(returns.df$R_SBUX,na.rm=TRUE)
+```
+
+
+Print variance using R
+```{r}
+var(returns.df$R_SBUX,na.rm=TRUE)
+```
+
+Q: THERE'S A DIFFERENCE BETWEEN THE ARITHMETIC MEAN BETWEEN THE SIMPLE AND CC RETURNS, CC MEAN IS LARGER THAN THE SIMPLE RETURNS BY 0.00306739. BUT WHEN WE GET TO THE STD DEVIATION AND VARIANCE THE DIFFERENCE IS SMALLER AND ALMOST UNVISIBLE.
+
+
+# Histogram using historical data
+Do a histogram of SBUX CC Returns
+
+```{r}
+hist(returns.df$r_SBUX, main="Histogram of SBUX monthly returns", xlab="Continuously Compounded returns", col="dark green")
+```
+
+Q: THIS HISTOGRAM SHOWS THAT THE CC RETURNS HAVE BEEN MORE FREQUENT BETWEEN THE 0.0 AND 0.1 AND THEN THE SECOND MOST FREQUENT VALUES HAVE BEEN FROM 0.0 TO -0.1. THIS MEANS THAT SBUX HAS GIVEN MORE POSITIVE CC RETURNS THAN NEGATIVE.
+
+Q:THE STD DEVIATION IS A WAY IN WHICH THE SPREAD CAN BE MEASURED IN A HISTOGRAM, IS THE DEVIATION FROM THE MEAN FOR THE VALUES ON THE DATA SET. SO BASICALLY THE STD DEVIATION IS THE AVERAGE DISTANCE THE DATA HAS FROM THE MEAN.
+
+# Histogram using simulated data for returns
+
+Simulation of random variable using the mean and std deviation
+```{r}
+rSBUX_sim <- rnorm(n=nrow(returns.df), mean = mean_r_SBUX, sd=sd_r_SBUX)
+
+# Get the number of rows of the object with nrow
+```
+
+Histogram of the simulated returns
+```{r}
+#Omit any empty values            
+rSBUX <- na.omit(returns.df$r_SBUX)
+
+#Calculation of histograms
+hist_sim_SBUX<- hist(rSBUX_sim,plot = FALSE)
+hist_SBUX <- hist(rSBUX,plot = FALSE)
+
+# Calculate the range of the graph
+xlim <- range(hist_SBUX$breaks,hist_sim_SBUX$breaks)
+ylim <- range(0,hist_SBUX$density,
+              hist_sim_SBUX$density)
+
+# Plot the first histogram
+plot(hist_sim_SBUX,xlim = xlim, ylim = ylim,
+     col = rgb(1,0,0,0.4),xlab = 'Lengths',
+     freq = FALSE, ## relative, not absolute frequency
+     main = 'Distribution of simulated and real Starbucks Returns')
+
+# Plot the second histogram on top of the 1st one
+opar <- par(new = FALSE)
+plot(hist_SBUX,xlim = xlim, ylim = ylim,
+     xaxt = 'n', yaxt = 'n', ## don't add axes
+     col = rgb(0,0,1,0.4), add = TRUE,
+     freq = FALSE) ## relative, not absolute frequency
+
+# Add a label in the corner
+legend('topleft',c('Simulated Returns','Real Returns'),
+       fill = rgb(1:0,0,0:1,0.4), bty = 'n')
+```
+
+Q:THE USE OF THE MEAN AND STD DEVIATION AS A WAY TO SIMULATE THE VALUES IS MUCH MORE BALANCED IN TERMS OF THE FREQUENCIES IN THE PLACES WHERE THE REAL VALUES HAVE A VERY LOW FREQUENCY THIS HAPPENDS BECAUSE IT IS USING A FORMULA TO ESTIMATE THE VALUES. ON THE OTHER HAND THE REAL VALUES AREN'T THAT BALANCED AND TEND TO BE MORE CONCENTRATED IN THE MIDDLE OF THE GRAPH IN VALUES BETWEEN 0 AND 0.1.
+```{r}
+cat(mean_r_SBUX, sd_r_SBUX)
+
+```
+
+Calculation of the confidence intervals, Z= 1.96 for 95% Confidence
+```{r}
+
+n <- as.numeric(nrow(returns.df))
+CI_low <- mean_r_SBUX - 1.96*(sd_r_SBUX/ sqrt(n))
+CI_upp <- mean_r_SBUX + 1.96*(sd_r_SBUX/ sqrt(n))
+CI_low
+CI_upp
+
+mean_R_SBUX <- mean(returns.df$R_SBUX, na.rm=TRUE) # arithmetic mean
+sd_R_SBUX <- sd(returns.df$R_SBUX, na.rm=TRUE) # standard deviation
+mean_R_SBUX+(1.96*sd_R_SBUX)
+mean_R_SBUX-(1.96*sd_R_SBUX)
+```
+
+Q:THE INTERVALS FOR THE 95% IN NORMAL DISTRIBUTION WILL BE 0.00446098 AND 0.02831889. THIS MEANS THAT IN THE FUTURE THE VALUES FROM THE MONTHLY RETURNS ON SBUX WILL BE BETWEEN 0.00446098 AND 0.02831889 WITH A 95% OF CONFIDENCE LEVEL IF THE VALUES FOLLOW A NORMAL DISTRIBUTION.

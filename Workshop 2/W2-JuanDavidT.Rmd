@@ -1,0 +1,260 @@
+---
+title: "Workshop 2 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Feb 17 2021"
+output:
+  html_document:
+    df_print: paged
+---
+# Analyzing Histograms of returns
+
+Clear the environment
+```{r}
+rm(list=ls())
+# To avoid scientific notation for numbers: 
+options(scipen=999)
+# Load the library 
+library(quantmod)
+```
+
+# Data Collection
+Gather the MXX Mexican IPC and GSPC S&P500
+```{r}
+# Downloading the historical quotation data for both indexes:
+getSymbols(c("^MXX", "^GSPC"), from="2000-01-01",  src="yahoo", periodicity="monthly")
+```
+
+# Return calculation
+
+Integrate both indexes
+```{r}
+prices = merge(MXX,GSPC)
+```
+
+
+```{r}
+prices = Ad(prices)
+names(prices) = c("MXX","GSPC")
+```
+
+Calculate CC Returns
+
+```{r}
+r = diff(log(prices))
+```
+
+Visualize the CCR
+
+```{r}
+head(r)
+```
+
+Omit NA
+```{r}
+r = na.omit(r)
+```
+ 
+Calculate simple returns
+```{r}
+R =  na.omit(prices / lag(prices,n=1) - 1)
+```
+
+Visualize R Head and Tail
+```{r}
+head(R)
+tail(R)
+```
+
+Omit the NA
+```{r}
+R <- na.omit(R)
+```
+
+# Histograms
+
+```{r}
+hist(R$MXX, main="Histogram of IPC monthly returns", xlab="Simple returns", col="dark blue")
+```
+# Q
+Q: INTERPRET this histogram with your words.
+<br/>
+A: THE FOLLOWING HISTOGRAM HAS MORE FREQUENCY ON BETWEEN 0.0 - 0.05 WHICH MEANS THAT THERE HAVE BEEN POSITIVE MONTHS THAN NEGATIVE. WE CAN ALSO TELL THAT MOST OF THE DATA ARE CONCENTRATED FROM -0.1 AND 0.1. IT CAN BE SEEN THAT THERE HAVE BEEN MORE POSITIVE VALUES OR R SINCE 2000 OF THE IPyC.
+
+Histogram for GSPC
+```{r}
+hist(R$GSPC, main="Histogram of S&P500 monthly returns", 
+     xlab="Simple returns", col="blue")
+```
+# Q
+Q: INTERPRET this histogram with your words.
+<br/>
+A: WE CAN SAY THAT THE R WAS MOSTLY CONCENTRATED BETWEEN -0.1 TO -0.1. THERE HAVE BEEN MORE POSITIVE RETURNS THAN NEGATIVE GIVEN THAT 0 TO 0.05 FREQUENCY IS MORE THAN THE NEGATIVE RANGES.
+
+# Looking at histograms
+# Q
+Q: LOOK CAREFULLY AT THIS PLOT WITH BOTH HISTOGRAMS. WHICH INSTRUMENT IS RISKIER? EXPLAIN
+<br/>
+A: THE IPyC INDEX IS MUCH MORE RISKIER BECAUSE IT IS MORE VOLATILE AND CAN FLUCTUATE MORE THAN THE S&P500. THIS CAN BE SEEN IN THE HISTOGRAMS AS THE YELLOW HAS MUCH MORE FREQUENCY ON THE NEGATIVE SIDE THANT THE BLUE, THE IPyC INDEX GRAPH IS MORE SPREAD WHICH ALSO MEANS IS MUCH MORE RISKY. 
+
+# Calculation of the mean and the standard deviation
+```{r}
+R_Mean_MXX <- mean(R$MXX , na.rm = TRUE)
+R_Mean_GSPC <- mean(R$GSPC, na.rm = TRUE)
+R_Mean_MXX
+R_Mean_GSPC
+
+R_SD_MXX <- sd(R$MXX, na.rm=TRUE)
+R_SD_GSPC <- sd(R$GSPC, na.rm=TRUE)
+R_SD_MXX
+R_SD_GSPC
+```
+
+# Q
+Q: WHICH INSTRUMENT LOOKS MORE ATTRACTIVE TO INVEST? EXPLAIN
+<br/>
+A: THE GSPC IS A MUCH MORE ATTRACTIVE INSTRUMENT TO INVEST IN IF YOU ARE LOOKING FOR A NOT RISKY WAY TO MAKE MONEY BECAUSE IT HAS A LOWER STANDARD DEVIATION WHICH MEANS IT FLUCTUATES LESS, AND THE MEAN IS MUCH MORE HIGHER AS WELL. ON THE OTHER HAND IF THE IDEAS IS TO MAKE FASTER PROFITS MAYBE A MORE VOLATILE INSTRUMENT IS BETTER WHICH IN THIS CASE IS MXX DUE TO THE HIGHER STD DEVIATION BUT THIS CAN ALSO MEAN MORE LOSSES, IT ALSO HAS A LOWER MEAN SO IT CAN GO LOWER MORE TIMES THAN HIGHER.
+
+# Calculating the holding period (Optional)
+
+```{r}
+exp(sum(r$MXX)) - 1
+exp(sum(r$GSPC)) - 1
+
+```
+# Q
+Q: If you had invested in the Mexican Index $1 peso in Jan 2000, WHICH WOULD BE THE VALUE OF YOUR INVESTMENT TODAY?
+<br/>
+A: 5.758302
+
+# Q
+Q: If you had invested in the S&P500 index $1 USD in Jan 2000, WHICH WOULD BE THE VALUE OF YOUR INVESTMENT TODAY?
+<br/>
+A: 1.821759
+
+# The Central Limit Theorem
+
+# Monte Carlo Simulation to create variables
+
+Create x random variable with normal distribution mean = 20 and standard deviation = 40 and 100,000 observations
+```{r}
+x <- rnorm(n=100000 , mean = 20, 40)
+```
+
+Create y variable with uniform distribution in the range of 0 - 60
+```{r}
+y <-  runif(n=100000 , min =0 , max = 60)
+
+(60-0)^2/12
+```
+# Q
+Q: HOW CAN YOU ESTIMATE THE VARIANCE OF A UNIFORM DISTRIBUTED VARIABLE?
+<br/>
+A: I RESEARCHED ON INTERNET AND IT SHOWED THAT A WAY TO ESTIMATE THE VALUE OF A UNIFORM DISTRIBUTED VARIABLE IS THROUGH THE FOLLOWING FORMULA ((B-A)^2)/12
+
+# Histogram of x and y
+
+Make a histogram for y and for x
+```{r}
+hist(x, main="Histogram of x", xlab="x values", col="dark blue")
+```
+```{r}
+hist(y, main="Histogram of y", xlab="y values", col="green")
+```
+# Q
+Q: WHAT DO YOU SEE? BRIEFLY EXPLAIN
+<br/>
+A: IN THE VARIABLE X HISTOGRAM IT CAN BE SEEN IT FOLLOWS A NORMAL DISTRIBUTION WHERE MOST OF THE VALUES ARE CONCENTRATED ON A CERTAIN AREA. ON THE OTHER HAND THE VARIABLE Y HISTOGRAM VALUES ARE ALL UNIFORMALLY DISTRIBUTED FROM 0 TO 60.
+
+# Calculating standard deviation and variance
+
+Calculating the mean for x and y 
+```{r}
+xbar= mean(x)
+ybar= mean(y)
+```
+
+Calculation of variance
+```{r}
+xdesv2=(x-xbar)^2
+ydesv2=(y-ybar)^2
+
+varx=mean(xdesv2)
+varx
+
+vary=mean(ydesv2)
+vary
+```
+
+# Calculating mean of groups for x and y
+
+Create a data frame with x and y as columns
+```{r}
+dataset <- cbind(x,y)
+dataset <- as.data.frame(dataset)
+```
+
+Create 4000 groups of 25 observations
+
+```{r}
+dataset$group <- rep(seq(1:4000),each=25)
+```
+
+Compute a sample mean for each group
+```{r}
+library(dplyr)
+group_means <- dataset %>%
+   group_by(group) %>%
+   summarise(x_mean = mean(x),
+             y_mean = mean(y))
+```
+
+Now we create a histogram with the mean of x
+```{r}
+hist(group_means$x_mean, main="Histogram of mean of X", xlab="Mean of X ", col="green")
+```
+
+Now a histogram for the means of the uniform distribution
+```{r}
+hist(group_means$y_mean, main="Histogram of mean of Y", 
+     xlab="Mean of Y", col="dark blue")
+```
+# Q
+Q: LOOKING AT THE HISTOGRAM OF THE SAMPLE MEAN OF Y (y_mean), HOW DIFFERENT IT IS FROM ITS ORIGINAL HISTOGRAM OF Y (y)?
+<br/>
+A: IT IS VERY DIFFERENT, THE ORIGINAL HISTOGRAM FOLLOWED A UNIFORM DISTRIBUTION WHILE THE HISTOGRAM WITH THE SAMPLE MEANS GROUPED FOLLOWS A NORMAL DISTRIBUTION, THIS IS VERY INTERESTING BECAUSE BY TAKING VALUES FROM A VARIABLE WITH UNIFORM DISTRIBUTION, GROUPING THEM AND TAKING THE MEAN MAKING A HISTOGRAM WITH THOSE MEANS BECOME THE VALUES THEN FOLLOW A NORMAL DISTRIBUTION. 
+
+THIS IS BECAUSE THE SAMPLE MEAN HISTOGRAM OF ANY DISTRIBUTION WILL BEHAVE AS A NORMAL DISTRIBUTION, THEORY ALSO KNOWN AS CENTRAL LIMIT THEOREM.
+
+# Q
+Q: CALCULATE THE MEAN AND STANDARD DEVIATION OF BOTH SAMPLE MEANS (COLUMNS x_mean AND y_mean). HINT: YOU CAN USE THE mean and sd functions
+<br/>
+```{r}
+#A: Calculation of mean
+Mean_x_m <- mean(group_means$x_mean, na.rm = TRUE)
+Mean_y_m <- mean(group_means$y_mean, na.rm = TRUE)
+Mean_x_m
+Mean_y_m
+
+Mean_x_sd <- sd(group_means$x_mean, na.rm = TRUE)
+Mean_y_sd <- sd(group_means$y_mean, na.rm = TRUE)
+Mean_x_sd
+Mean_y_sd
+
+Mean_x_var <- var(group_means$x_mean, na.rm = TRUE)
+Mean_y_var <- var(group_means$y_mean, na.rm = TRUE)
+Mean_x_var
+Mean_y_var
+
+```
+# Q
+Q: IS THE VARIANCE OF THE RANDOM SAMPLE MEANS EQUAL TO THE VARIANCE OF THE ORIGINAL RANDOM VARIABLES? BRIEFLY EXPLAIN
+<br/>
+A: THE VARIANCE OF X VALUES IN THE ORIGINAL WAS 1602.624 WHILE THE VARIANCE IN 62.51097 WHICH SHOW THAT USING THE SAMPLE MEANS OF A NORMAL DISTRIBUTION NARROWS THE VARIANCE A LOT, THIS IS BECAUSE THE CENTRAL LIMIT DISTRIBUTION AND THE USE OF THE MEANS. THE MEANS CAN GATHER A LOT OF VALUES THAT CAN BE VERY FAR AWAY FROM THE ACTUAL MEAN OF THE VARIABLE BUT BECAUSE IT IS A MEAN IT SHORTENS THEIR DISTANCE FROM THE MEAN. 
+ON THE Y VARIABLE THE VARIANCE WAS 299.8323 AND WITH THE SAMPLE MEANS IS NOW 11.90899 WHICH SHOWS THAT THE SAMPLE MEANS NARROW THE DISTANCE FROM THE MEAN A LOT AS WELL. USING THE MEAN OF DIFFERENT SAMPLES HELPED TO BALANCE SOME VALUES THAT WHERE TO HIGH OR WAY TOO LOW. THROUGH THI THEOREM IT SHOWS THE VARIANCE LOWERS DOWN.
+
+# Q
+Q: DO A RESEARCH ABOUT THE CENTRAL LIMIT THEOREM. WITHYOUR WORDS, EXPLAIN WHAT THE CENTRAL THEOREM IS
+<br/>
+A: CENTRAL LIMIT THEOREM IS THE THEOREM THAT STATES THAT NO MATTER THE DISTRIBUTION OF THE VALUES IN A SAMPLE IF YOU TAKE THE SAMPLE MEAN OF THE DIFFERENT SAMPLES THE SAMPLE MEANS WILL FOLLOW A NORMAL DISTRIBUTION. THIS DEPENDS ALSO ON THE SAMPLE SIZE, IF THE SAMPLE SIZE IS BIGGER THE MORE IT ADJUSTS TO A NORMAL DISTRIBUTION. 
+
+IT IS SAID THAT FOR THAT TO HAPPEN THE MINIMUM SAMPLE SIZE IS 30 BUT THERE CAN BE SOME EXCEPTIONS WITH LESS SAMPLE SIZE. THERE ARE ALSO SOME DISTRIBUTIONS THAT AREN'T ABLE TO PERFORM A SAMPLE MEAN, WHICH IN THIS CASE THOSE WON'T FOLLOW THE THEOREM BUT FOR THE MAJORITY OF THE DISTRIBUTIONS LIKE UNIFORM OR EXPONENTIAL THE THEOREM DOES WORK.

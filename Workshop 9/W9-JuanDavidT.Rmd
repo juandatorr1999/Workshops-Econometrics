@@ -1,0 +1,264 @@
+---
+title: "Workshop 9 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Apr 21 2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Data management
+
+Download data from a website
+```{r}
+library(readxl)
+
+download.file("http://www.apradie.com/datos/datamx2020q4.xlsx", "dataw7.xlsx", mode="wb")
+
+data <- read_excel("dataw7.xlsx")
+```
+
+Create financial ratios.
+Create variables for book value, market value, book-to-market value, earnings per share, earnings per share deflated by price.
+```{r}
+# Select only active firms:
+
+data <- data[data$status=="active",]
+
+# Create book value variable
+data$bookvalue <- data$totalassets-data$totalliabilities
+
+# Calculate marketvalue
+data$mktval <- data$originalhistoricalstockprice * data$sharesoutstanding
+
+# Create book-to-market ratio variable
+data$bmr <- data$bookvalue / data$mktval
+
+# Create earnings per share variable
+data$eps <- data$ebit / data$sharesoutstanding
+
+# Create earnings per share deflated by price column
+data$epsp <- data$eps / data$originalhistoricalstockprice
+```
+
+
+Winsorized variable for BMR and EPS with 1%
+
+```{r}
+
+library(statar)
+library(plm)
+```
+
+```{r}
+data$bmr_w <- winsorize(data$bmr,probs = c(0.01,0.99))
+par(mfrow=c(1,2))
+hist(data$bmr, col="lightblue", main = "bmr")
+hist(data$bmr_w, col = "blue", main="bmr winsorized")
+```
+```{r}
+data$epsp_w <- winsorize(data$epsp, probs=c(0.01,0.99))
+```
+
+```{r}
+par(mfrow=c(1,2))
+hist(data$epsp, main = "epsp", col="orange")
+hist(data$epsp_w, main="epsp winsorized", col="gold")
+
+```
+
+Set the dataset as a panel data. We will need to use multiple dates
+```{r}
+# The index of the data frame must be firmcode-quarter
+data <- pdata.frame(data, index = c("firmcode", "quarter"))
+
+# Calculate firm return
+data$stockreturn <- diff(log(data$adjustedstockprice))
+
+# We add columns for future returns one year later and one quarter later:
+data$F4r <- plm::lag(data$stockreturn,-4)
+data$F1r <- plm::lag(data$stockreturn,-1)
+```
+
+Binary variable to classify firms according to the size. Small vs big firms
+
+
+```{r}
+
+data$size <- log(data$mktval)
+# We take the log since the market value variable usually does not 
+#  behave like a normal distributed variable (it is skewed to the right)
+# When we take the log of skewed variables, then the log will behave
+#  close to a normal variable
+
+
+
+library(dplyr)
+
+# xtile function calculates percentiles by groups. In this case, we 
+#  group the data by quarter, and for each quarter we will classify
+#  firms in 4: very big, big, small, very small  
+sizetype0 <- data %>%
+  group_by(quarter) %>%
+  summarise(sizetype = xtile(size, n=4), firmcode=firmcode)
+# In this case, n=4 means that it will generate sizetype0 according to 
+#   the 25 percentile to create 4 groups. Those with values=1 will be 
+#   the smallest firms and those with values=4 will be the biggest firms.
+
+# Now we merge the panel data with the sizetype0 
+
+data <- merge(data,sizetype0,by=c("firmcode","quarter"))
+
+# We again set the data as panel-data since the merge function changed the class of
+#   the dataset to data frame:
+data <- pdata.frame(data, index = c("firmcode", "quarter"))
+
+```
+
+```{r}
+table(data$sizetype)
+```
+
+
+# Regression model with categorical variable
+
+Include the new categorical explanatory variables
+```{r}
+# Before running a regression with a categorical independent variable, 
+#  we need to indicate R that this variable is a "factor" variable: 
+data$size1 <- factor(data$sizetype, c(1,2,3,4), labels = c("Very Small", "Small", "Big", "Very Big")) 
+
+# Look at the coding
+contrasts(data$size1)
+```
+
+Run the regression 
+```{r}
+# We need to detach (unload) the dplyr library since it makes conflict
+#   with the plm package 
+detach(package:dplyr)
+
+# 4 quarters in the future
+reg1 <-plm(lag(stockreturn,-4) ~ size1 + bmr_w, data = data, model="pooling")
+reg1results<-summary(reg1)
+reg1results
+```
+
+
+The regression can be runned as weel using the simple lm function, but a variable for future stock returns must be created first
+```{r}
+reg2 <-lm(F4r ~ size1 + bmr_w, data = data)
+#reg2 <-lm(stockreturn ~ size1 + bmr_w, data = data)
+reg2results<-summary(reg2)
+reg2results
+```
+Interpret the output of the model
+
+The vertical distance between the very small size since it is the base size then it is equal to the coefficien to of size1Small which is 0.0188085, then the vertical distance between the very small and the big firms is equal to the coefficient of the size1Big which is 0.240453 and finally the vertical distance between the very big and the very small is the size1VeryBig coefficient which is 0.290969.
+
+To predict the stock market return with the categorical values two of the three coefficients will be multiplied by 0 so when the prediction wants to be made for small, big and very big it will be done with the following formula: stockPrice = a0 + sizeToBePredicte + bmr_w * bmr and for the very small size it will be stockPrice = a0 +bmr_w * bmr.
+
+Use predictlm to make a prediction of a future stock return with a bmr from 0.6 to 1.6 by 0.1 and for small and big firms.
+
+```{r}
+newx <- data.frame(bmr_w = rep(seq(0.6, 1.6, by=0.1), 4), size1 = levels(data$size1))
+
+pr_reg1 <- predict.lm(reg2, newx, interval = "confidence")
+colnames(pr_reg1) <- c("StockReturn", "lwr", "upr")
+pred_reg1 <- cbind(newx, pr_reg1)
+
+# Plot
+library(ggplot2)
+ggplot(pred_reg1, aes(x = bmr_w, y=StockReturn, color=size1)) +
+  geom_point(size = 2) + geom_line() + 
+  geom_errorbar(aes(ymax = upr, ymin = lwr))
+```
+
+It can be seen that when the bmr increases the stock return also increases. The size of the firm also affects the stock price and as we saw on the equations for the different sizes it can be seen that the vertical distance between very small and small is determined by the coefficient of the size1small. So after considering the effect of the book market return and maintaining the bmr constant it can be said that the distance between each size category is constant which means that it is true that the vertical distance between the very small and any size is determined by its coefficient.
+
+The alpha1 coefficient as we named it is the coefficient for small firms, the coefficient represents the vertical distance between the very small and the small with a bmr constant.
+
+# Evaluating the effect of book-to-market ratio controlling for Industry
+
+Regression model to examine wether the BMR winsorized influences the future stock return one quarter later
+
+```{r}
+table(data$naics1)
+
+```
+
+Categorical variable with 3 values
+```{r}
+# I transform the industry column into a factor column to consider 
+#   this variable as a categorical variable:
+industries<-unique(data$naics1)
+# With the unique function I get the unique names of industries from 
+#   the panel dataset
+# I short the name of the 2nd industry to improve the display of the 
+#  regression models:
+industries2<-industries
+industries2[2]<-"Administrative and Waste Management"
+industries
+```
+```{r}
+data$naicsf<-factor(data$naics1,industries,labels=industries2)
+
+reg3<-lm(F1r ~ bmr_w + naicsf, data = data)
+summary(reg3)
+```
+
+Interpretation: 
+The coefficients of each of the categorical values represent the vertical distance between that categorical value and the manufacturing category maintaining the bmr constant. After considering the categorical values the bmr when increased by a unit the stock return will change 0.010409.
+
+
+The regression equation for the Administrative and Waste Management is: stockReturn = 0.011702 - 0.014430 +0.010409 * bmr
+
+# Effect of BMR, EPS and size type on future stock returns
+
+Categorical value for size
+```{r}
+library(dplyr)
+sizetype1 <- data %>%
+  group_by(quarter) %>%
+  summarise(sizetype1 = xtile(size, n=3), firmcode=firmcode)
+
+# Now we merge the panel data with sizetype1 
+data <- merge(data,sizetype1,by=c("firmcode","quarter"))
+# We indicate to do the merge by firm-quarter
+
+# The index of the data frame must be firmcode-quarter
+data <- pdata.frame(data, index = c("firmcode", "quarter"))
+
+# Code dummy variable
+data$size3 <- factor(data$sizetype1, c(1,2,3), labels = c("Small","Medium", "Big")) 
+# Look at the coding
+contrasts(data$size3)
+```
+
+Multiple regression model for BMR, EPSP and categorical variable size type
+
+```{r}
+reg4 <- lm(F1r ~ bmr_w + epsp_w + size3, data = data)
+summary(reg4)
+```
+We can see in the regression output that after considering the effect of the categorical values and the epsp, an increase of a unit in the bmr increases the stock return by 0.006059. After considering the bmr and the categorical values the epsp when it increases by one unit the stock return changes 0.106705. Additionally the coefficient of both categorical values represent the vertical distance to the sizeSmall.
+
+INTERPRET THE MODEL 
+a) Predict the firm return for a company with a BMR that moves from 0.40 to 1.6 moving by 0.10, and for the 3 size categories. You can do this as:
+
+```{r}
+# Make prediction using predict.lm()
+newx2 <- data.frame(bmr_w = rep(seq(0.4, 1.6, by=0.1), 3), 
+                    epsp_w = mean(data$epsp_w,na.rm=TRUE),
+                    size3 = levels(data$size3))
+pr_reg3 <- predict.lm(reg4, newx2, interval = "confidence")
+colnames(pr_reg3) <- c("StockReturn", "lwr", "upr")
+pred_reg3 <- cbind(newx2, pr_reg3)
+
+# Plot
+ggplot(pred_reg3, aes(x = bmr_w, y=StockReturn, color=size3)) +
+  geom_point(size = 2) + geom_line() + 
+  geom_errorbar(aes(ymax = upr, ymin = lwr))
+```
+
+In the graph it can be seen that when the bmr increases the stock return increases. The stock return when the firm is small the 95% interval does not intersect with the other intervals of the other sized firms. The stock return between the medium and big firms isn't very far from each which means that the size of the firms from medium to big doesnt make much difference.

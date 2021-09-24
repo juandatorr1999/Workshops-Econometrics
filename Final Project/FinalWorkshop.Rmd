@@ -1,0 +1,365 @@
+---
+title: "Final Workshop"
+author: "Juan David Torres A01702686 and Manuel Garcia A01701414"
+date: "May 12 2021"
+output:
+  html_document:
+    df_print: paged
+---
+# Introduction 
+
+Along with this workshop, a fundamental analysis is made from the U.S companies in order to predict and determine several characteristics related to survivability and the amount of expected return after investing in these companies. This was possible through the use of a complete dataset with all U.S companies from 2006 to 2019, and data like net income, expenses, total assets, adjusted prices, debt, activeness, field, etc. 
+
+The use of indicators and models, as tools for the calculation of the characteristics previously mentioned, is depicted in the workshop by the employment of F-Score for its capacity to define a successful portfolio investment and the use of the logit model to define an outcome with binary possibilities.
+
+
+
+# 1. Descriptive statistics of the US market
+
+```{r}
+# No scientific notation
+options(scipen=999)
+
+#Read Excel
+library(readxl)
+us2020a <- read_excel("us2020a.xlsx")
+
+```
+
+```{r}
+#Data management
+library(dplyr)
+
+#First columns selected to show first
+data<-us2020a %>%
+    select(firm,year,revenue,cogs1,sgae1,everything())
+```
+## 1.1
+```{r}
+#Obtain the active firms
+active_firms <- data[data$status=='active',] 
+
+#Active firms in 2020
+data_active_2020 <- active_firms[active_firms$year==2020, ] 
+
+financial_statement<-data_active_2020 %>%
+    select(totalassets,totalliabilities,stockholderequity,revenue,ebit1, marketcap)
+
+library(pastecs)
+stat.desc(financial_statement)
+```
+
+### Interpretation. 
+
+Total assets. The min amount for total assets from a firm are 266,000 USD, while having a max of 3,386,071,000,000 USD. The average amount of assets are 15,664,250,000 USD while 95% of the firms are enclosed on an interval of +/- 3,752,904,000 USD to the mean.
+
+Total liabilities. The min amount for total liabilities from a firm are 12,000 USD, while having a max debt of 3,106,717,000,000 USD. The average amount of liabilities are 1,676,405,000 USD while 95% of the firms are enclosed on an interval of +/- 3,352,810,000 USD to the mean.
+
+Stock holder equity. The min equity from stakeholders from a firm is -18,075,000,000 USD, while having a max equity of 443,164,000,000 USD. The average amount of equity is 3,296,547,000 USD while 95% of the firms are enclosed on an interval of +/- 537,709,800 USD to the mean.
+
+Revenue. The min revenue from a firm is -17,156,000 USD, while having a max revenue of 523,964,000,000 USD. The average amount of revenue is 4,616,703,000 USD while 95% of the firms are enclosed on an interval of +/- 702,469,200 USD to the mean.
+
+Earning before interests and taxes. The min ebit from a firm is -29,448,000,000 USD, while having a max amount of 66,288,000,000 USD. The average ebit from firms are 452,509,400 USD while 95% of the firms are enclosed on an interval of +/- 112,073,120 USD to the mean.
+
+Market cap. The min market cap from a firm is 1874 USD, while having a max amount of 1,980,645,000,000 USD. The average market cap from firms are 11,868,480,000 USD while 95% of the firms are enclosed on an interval of +/- 2,349,738,000 to the mean.
+
+
+## 1.3
+```{r}
+industries<-unique(data_active_2020$cnaics1)
+data_active_2020 %>%                               # Summary by group using dplyr
+  group_by(data_active_2020$cnaics1) %>% 
+  summarize(firms = n(),
+            median_total_assets = median(totalassets, na.rm = TRUE),
+            median_market_cap = median(marketcap, na.rm = TRUE))
+```
+
+### Interpretation
+
+Without considering the "-" Industry, is easily recognizable that the Utilities Industry  has the highest median market cap and median total assets depicting their importance on the US environment. On the other side, the Information industry has the second highest median market cap, while Finance and Insurance having the second highest median total assets. Based on these terms, the industries of Utilities, Information and Finance and Insurance have the greater impact based on total assets and market cap, but it is important to highlight the absurd amount of firms from the Manufacturing Industry (1364).
+
+## 1.4
+```{r}
+library(plm)
+paneldata <- pdata.frame(active_firms, index = c("firm", "year"))
+paneldata$r_a <- diff(log(paneldata$adjprice))
+paneldata$R_a <- exp(paneldata$r_a) -1
+```
+
+
+# 2. Fundamental Analysis
+
+## 2.1 The Relevance of Using Accounting Fundamentals in the Mexican Stock Market
+
+The paper presents the importance of employing fundamental analysis over the Mexican stock market in order to obtain greater returns on a stock portfolio over one - two year holding period. Through the research over different markets and their proposed signals two are selected to be applied on the selected context based on the available information from the Mexican firms, named F-Score and L-Score. Their importance and probabilistic significance is proofed through 5 regression models, the paper concludes showing an investment strategy using accounting fundamental scores is stronger than a traditional market index investment strategy.
+
+F-Score is computed through the sum of nine discrete fundamental measures (F1, F2, F3, F4, F5, F6, F7, F8, F9). 
+F1 = (Return On Assets at t > 0) ? 1 : 0
+F2 = (Cash Flow from Operations at t > 0) ? 1 : 0
+F3 = (Change of Return On Assets > 0) ? 1 : 0
+F4 = ( (Cash low from operations at t)/ (Total Asset at the beginning of the period) > Return On Assets at t ) ? 1 : 0
+F5 = (Change of (Long term debt / Average assets) < 0 ) 1 : 0
+F6 = (Change of (Current Assets / Current liabilities) < 0) 1 : 0 
+F7 = (Change in common share outstanding > 0 ) 1 : 0
+F8 = (Change of (Gross Margin at t / Assets at the beginning of the period) > 0) 1 : 0
+F9 = (Change of (Sales at t / Assets at the beginning of the period) > 0) 1 : 0
+
+Then  F-Score = F1 + F2 + F3 + F4 + F5 + F6 + F7 + F8 + F9
+
+
+Along the paper, the F-Score is used as a composite score that conveys information about annual improvements of firm profitability, financial leverage, and inventory turnover, as a result, high F-scores imply potential abnormal positive returns and future growth, which is aids the objective of the research for acquiring greater returns through fundamental analysis. 
+
+### Interpretation of the paper regressions
+
+Model 1 - Earnings response coefficient. Having a  R which represents the 12 month excess firms returns over the market index as a dependent variable, an alpha coefficient of −0.08 was obtained, with a t-value of -7.17 as a result we can consider this coefficient statistically significantly. Meaning that in more of the 95% of the cases the average excess return without considering epsp will be of −0.08. Now observing EPSP, a beta value of 0.023 is considered statistically significant with a t-value of 4.18. Which ensures that an increase of 1 point on EPSP will result on an increment of 0.023 over the 12 month excess return over the market index.
+
+Model 2 - Benchmark. Based on this model, we are trying to explain R, which is the 12 month excess firms returns over the market index. We have an alpha of -0.451, which is statistically significant thanks to a t-value of -4.31, representing a median base value of -0.451 for the return without considering any independent variable. Similarly, EPSP, after considering the effect of BMR and firm-size, depicts an statistically significant value of 0.021, implying an increase on 0.021 excess return per point increased on EPSP Then, BMR resulted with a coefficient of 0 while having a t-value of −0.14 we conclude that it is not statistically significant and it has no effect over the excess return due to its coefficient. Finally, the firm size obtained a coefficient of 0.024, after considering BMR and EPSP, and because of a t-value of 3.62 we say that it is statistically significant.
+
+Model 3 - Value Relevance of F-score. Over this model, we encounter the same dependent variable that the two previous models. Here the alpha corresponds to an statistically significant value of -0.73 which means that as a base value we will obtain -0.73 from excess return regardless of the independent variables. Now, regarding EPSP after considering BMR, size and F-Score, is statistically significant with a p-value < 0.05 and a coefficient value of 0.012, meaning an increase of 0.012 in excess return for every point of EPSP. Talking about BMR, and after considering the other independent variables, its coefficient is non statistically significant due to a t-value of -0.57, with a mean value of −0.002. Later speaking about size after all effects from the other variables, an statistically significant increase of 0.024 per point of size is shown.Finally, a strong relationship between F-Score and excess return appears with a t-value of 6.04 (statistically significant) and a coefficient value of 0.059, it represents the biggest increase of excess return from all other independent variables.
+
+Model 4 - Value Relevance of L-score. The interception of this model (alpha) has a coefficient of -0.56 excess return which confirms that if every independent variable had a value of 0 the excess return will be negative over the market index. From all beta coefficients from de independent variables, BMR after considering the effect of the others, is a non statistically significant coefficient with a negative impact of -0.002 over the excess return. While the other coefficients (EPSP, size, L-Score) are statistically significant, after considering the effects of every other independent variable, with t-values of 2.87, 3.11, 2.74 respectively, as a result for each point increased over EPSP, size and L-Score a positive excess return of 0.017, 0.023, 0.024 is expected.
+
+
+Model 5 - Value Relevance of Fundamentals. As shown in other models, the alpha coefficient from the regression is negative and statistically significant with a value of -0.709, and also represents the base expected excess return from the regression. Then BMR after considering the other four independent variables (EPSP, SIZE, F-SCORE, L-SCORE) has a negative coefficient value of -0.002 and is not statistically significant due to a t-value of -0.67. At the same time, we encounter an L-SCORE with an almost statistically significant coefficient beacuse of a t-value of 1.81 and a coefficient value of 0.016. Finally, EPSP, SIZE, and F-SCORE are statistically significant (for their respective t-values 2.52, 2.68, 5.32) and they have positive beta values of 0.015, 0.020, 0.054 respectively, meaning that for each increased point over those independet variables a greater excess return will be obrtained on the firms.
+
+
+## 2.2 Calculate F-Scores
+
+```{r}
+paneldata$lag_ta<- ifelse(is.na(plm::lag(paneldata$totalassets, 1)), paneldata$totalassets, plm::lag(paneldata$totalassets, 1)) 
+paneldata$avg_total_assets <- ifelse((is.na(paneldata$lag_ta + paneldata$totalassets )/2), paneldata$totalassets , (paneldata$lag_ta + paneldata$totalassets )/2)
+paneldata$roa_t <- paneldata$ebit1/paneldata$lag_ta
+paneldata$c_roa <-  ifelse(is.na( paneldata$roa_t - plm::lag(paneldata$roa_t)), 0, paneldata$roa_t - plm::lag(paneldata$roa_t))
+paneldata$cash_assets_t <- paneldata$cashflowoper/paneldata$lag_ta
+paneldata$debt_assets <- paneldata$longdebt1/paneldata$avg_total_assets
+paneldata$c_debt_assets <-  ifelse(is.na( paneldata$debt_assets - plm::lag(paneldata$debt_assets)), 0, paneldata$debt_assets - plm::lag(paneldata$debt_assets))
+paneldata$assets_liabilities <- paneldata$ca/paneldata$currentliabilities1
+paneldata$c_assets_liabilities <-  ifelse(is.na( paneldata$assets_liabilities - plm::lag(paneldata$assets_liabilities)), 0, paneldata$assets_liabilities - plm::lag(paneldata$assets_liabilities))
+paneldata$c_shr_out <- ifelse(is.na(paneldata$sharesoutstanding - plm::lag(paneldata$sharesoutstanding) ), 0, paneldata$sharesoutstanding - plm::lag(paneldata$sharesoutstanding))
+paneldata$gross_lag_ta <- paneldata$grossprofit/paneldata$lag_ta
+paneldata$c_gross_lag_ta <- ifelse(is.na(paneldata$gross_lag_ta - plm::lag(paneldata$gross_lag_ta) ), 0, paneldata$gross_lag_ta - plm::lag(paneldata$gross_lag_ta))
+paneldata$sales_lag_ta <- paneldata$revenue/paneldata$lag_ta
+paneldata$c_sales_lag_ta <- ifelse(is.na(paneldata$sales_lag_ta - plm::lag(paneldata$sales_lag_ta) ), 0, paneldata$sales_lag_ta - plm::lag(paneldata$sales_lag_ta))
+
+
+paneldata$f1 <- (ifelse(paneldata$roa_t>0 , 1, 0))
+paneldata$f2 <- (ifelse(paneldata$cashflowoper>0, 1, 0))
+paneldata$f3 <- (ifelse(paneldata$c_roa>0 , 1, 0))
+paneldata$f4 <- (ifelse(paneldata$cash_assets_t>paneldata$roa_t , 1, 0))
+paneldata$f5 <- (ifelse(paneldata$c_debt_assets<0 , 1, 0))
+paneldata$f6 <- (ifelse(paneldata$c_assets_liabilities<0 , 1, 0))
+paneldata$f7 <- (ifelse(paneldata$c_shr_out>0 , 1, 0))
+paneldata$f8 <- (ifelse(paneldata$c_gross_lag_ta>0 , 1, 0))
+paneldata$f9 <- (ifelse(paneldata$c_sales_lag_ta>0 , 1, 0))
+
+paneldata$fscore <- paneldata$f1 + paneldata$f2 + paneldata$f3 + paneldata$f4 + paneldata$f5 + paneldata$f6 + paneldata$f7 + paneldata$f8 + paneldata$f9 
+
+```
+
+## 2.3 Replicate Models and 2.4 Interpretation of the Models
+
+```{r}
+library(statar)
+library(plm)
+
+# Calculation for the models that are going to be modeled after
+paneldata$bookvalue = paneldata$totalassets - paneldata$totalliabilities
+paneldata$mktvalue = paneldata$originalprice * paneldata$sharesoutstanding
+paneldata$bmr = paneldata$bookvalue/paneldata$mktvalue
+paneldata$eps = paneldata$ebit1/paneldata$sharesoutstanding
+paneldata$epsp = paneldata$eps/paneldata$originalprice
+paneldata$log_size = log(paneldata$totalassets)
+paneldata
+
+# Get the non financiall firms
+paneldata_nonfin = paneldata[paneldata$cnaics1!="Finance and Insurance",]
+
+
+```
+### Model 1
+```{r}
+# Earnings per share deflated by price winzorized
+paneldata_nonfin$epsp_w <- winsorize(paneldata_nonfin$epsp,probs = c(0.02,0.98))
+
+# The regression with the returns one year later
+model_1 = plm(lag(r_a,-1) ~ epsp_w, data = paneldata_nonfin, model="pooling", na.action = na.omit )
+# Summary of the model 1
+s_model_1 = summary(model_1)
+s_model_1
+```
+```{r}
+# Confidence interval for epsp in the 1 model
+low_epsp = 0.335834 - (2*0.015751)
+high_epsp = 0.335834 + (2*0.015751)
+low_epsp
+high_epsp
+```
+
+The model 1 represents the effect of earn per share deflated by price in the returns one year later. The dependent variable is the cc returns one year later and the independent variable is the epsp. An increase by one unit of the earnings per share deflated by price increases by 0.335834 the one year later return, it is statistically significant due to its very low p value which is 0.00000000000000022 lower than 0.05. If the espsp is 0 then the return one year later is equal 0.025635 and this is statistically significant because the p value is equal to 0.00000000002353 which is lower than 0.05. The 95% confidence interval for epsp is 0.304332 to 0.367336 which means that with a 95% confidence the coefficient for epsp is goes from those two values.
+
+In contrast with the model shown in the paper from the Mexican market the epsp has a much lower impact on the model because the coefficient is 0.023 which shows that with an increase in one unit in the epsp increases by 0.023 the excess one year later returns with respect to the market. Although in the models the dependent variable differs there's not that much of a difference which means in the US market there is a much bigger impact when the epsp increases in the future on year later returns.
+
+### Model 2
+```{r}
+
+# Winzorize the bmr
+paneldata_nonfin$bmr_w <- winsorize(paneldata_nonfin$bmr,probs = c(0.02,0.98))
+# Create the regression the same as the model 2 on the paper
+model_2 = plm(lag(r_a,-1) ~ epsp_w + bmr_w + log_size, data = paneldata_nonfin, model="pooling", na.action = na.omit)
+
+# Summary of the model 
+s_model_2 = summary(model_2)
+s_model_2
+```
+The model 2 represents the effect of epsp, book to market ratio and size in the one year later return of a firm in the US market. The independent variables are the epsp, bmr and size, and the independent variable is the cc return one year later. After considering the effect of bmr and size, when the epsp increases by one unit the future return one year later increases by 0.2562912, the p value is 0.00000000000000022 and is statistically significant because the p value is lower than 0.05.
+
+After considering the effect of epsp and log size the increase in one unit of book to market ratio increases the one year later return by 0.0314318 and the p value is 0.0003815 which means that is statistically significant the effect of the bmr in the one year later returns.
+
+After considering the effect of the bmr and the epsp the increase in log (assets) of one unit increases by 0.0206492 the one year later returns and the p value is 0.00000000000000022 which means it's statistically significant.
+
+If the bmr, the epsp and the size are all equal to 0 the return one year later will be equal to -0.2721324 which is the intercept. The p value is 0.00000000000000022 which means it is statistically significant.
+
+In contrast with the model 2 in the paper which models the Mexican market the epsp coefficient is 0.021 which is much lower than the one on the model for the US market this means that the effect of the epsp on the one year later excess returns with respect to the market for the mexican market is much lower than the effect on the one year later future returns on the US market but they are both positive. On the other hand an increase in the bmr on the mexican market decreases the one year later excess return with respect to the market by −0.000 with a t value of −0.14 which means its not significant, different from the the US market which the relation is positive and significant. The log(assets) for the Mexican market, when there's an increase of one unit on log(assets) or the size the excess one year later returns increase by 0.024 and is significant because the t value is 3.62 which is higher than 2, the relation is positive as well as for the us market and the effect of the size impacts more on the mexican market than in the US market because the coefficient is bigger on the mexican market.
+
+### Model 3
+```{r}
+# Regression for the 3 model for the US market
+model_3 = plm(lag(r_a,-1) ~ epsp_w + bmr_w + log_size + fscore, data = paneldata_nonfin, model="pooling", na.action = na.omit)
+
+# Summary of the model
+s_model_3 = summary(model_3)
+s_model_3
+```
+The model 3 represents the effect of epsp, book to market ratio, size and the fscore in the one year later return of a firm in the US market. The independent variables are the epsp, bmr, size represented by the log(assets) and the f score, the independent variable is the cc return one year later. After considering the effect of bmr, size and f score, when the epsp increases by one unit the future return one year later increases by 0.2515401, the p value is 0.00000000000000022 and is statistically significant because the p value is lower than 0.05.
+
+After considering the effect of epsp, size and f score the increase in one unit of book to market ratio increases the one year later return by 0.0313760 and the p value is 0.0003906 which means that is statistically significant the effect of the bmr in the one year later returns.
+
+After considering the effect of the bmr, epsp and fscore the increase in log (assets) of one unit increases by 0.0199411 the one year later returns and the p value is 0.00000000000000022 which means it's statistically significant.
+
+After considering the effect of the bmr, epsp and size the increase of the f score by one unit increases by 0.0038851 the one year later returns and the p value is 0.0558239 which means it's not statistically significant because is higher than 0.05.
+
+If the bmr, the epsp, the size and the f score are all equal to 0 the return one year later will be equal to -0.2813023 which is the intercept. The p value is 0.00000000000000022 which means it is statistically significant.
+
+In contrast with the model 3 in the paper which models the same independent variables and the dependent variable is the market excess return oen year later  in the Mexican market the epsp coefficient is 0.012 which is much lower than the one on the model for the US market this means that the effect of the epsp on the one year later excess returns with respect to the market for the mexican market is much lower than the effect on the one year later future returns on the US market but they are both positive. On the other hand an increase in the bmr on the mexican market decreases the one year later excess return with respect to the market by −0.002 with a t value of −0.57 which means its not significant, different from the the US market which the relation is positive and significant. The log(assets) for the Mexican market, when there's an increase of one unit on log(assets) or the size, the excess one year later returns increase by 0.024 and is significant because the t value is 3.38 which is higher than 2, the relation is positive as well as for the us market and the effect of the size impacts more on the mexican market than in the US market because the coefficient is bigger on the mexican market. For the f score the coefficient is 0.059 which is much higher than for the US market which means that the an increase in one unit on the f score on the Mexican market increases more the one year later return than for the firms in the US market and is significant because the t value is 6.04 which is higher than 2.
+
+## 2.5 Portfolio
+```{r}
+#Get the data for 2019 only
+paneldata_2019 = paneldata[paneldata$year==2019,]
+
+#Sort the data first by fscore and then by epsp which is the the most explicative variable in the 3 model
+sorted2019 = paneldata_2019[order(paneldata_2019$fscore,paneldata_2019$epsp,decreasing = TRUE),]
+
+# Get the top 10 of the already ordered table
+top10 = sorted2019[1:10,]
+
+# Convert them as vectors so their information can be recovered with getSymbols
+toptickers = as.vector(top10$firm)
+toptickers
+
+
+```
+```{r}
+# Load quantmod library to use get symbols
+library(quantmod)
+
+# Get all the symbols from the toptickers vector for the whole 2020 year
+getSymbols(Symbols = toptickers, from="2020-01-01", to="2020-12-31")
+```
+
+```{r}
+library(PerformanceAnalytics)
+library(highcharter)
+# Merge the adjusted prices for the firms in the top 10
+prices = Ad(merge(MESA, AL, NFG, TCS, SWM, FRTA, EBF, NWPX, ABM, RLGT))
+
+# Get the returns for all of the firms
+Returns = na.omit(Return.calculate(prices))
+
+# Graph all of the returns of the top 10 firms
+charts.PerformanceSummary(Returns,main="Performance of $1.00 over time",wealth.index = TRUE)
+```
+Create an equally weighted portfolio with the 10 stocks
+```{r}
+# Create a vector with 0.1 ten times 
+w_ew = rep(0.1,10)
+
+# Calculate the returns taking into account the equal weights
+portfolio_returns_ew = Return.portfolio(Returns,weights = w_ew)
+
+colnames(portfolio_returns_ew) = c("Portfolio Returns")
+
+# Graph the performance of the portfolio created
+charts.PerformanceSummary(portfolio_returns_ew,main="Performance of $1.00 over time",wealth.index = TRUE)
+```
+```{r}
+library(quantmod)
+# Download the data for the S&P500 which is the index we are going to use to compare the market with the porfolio created
+getSymbols(Symbols = "^GSPC", from="2020-01-01", to="2020-12-31")
+# Get the adjusted prices
+spx500 = Ad(GSPC)
+
+# Calculate the returns for the SPX500
+ReturnsSPX = na.omit(Return.calculate(spx500))
+
+#Merge both the market and the portfolio created
+ReturnsTotal = merge(ReturnsSPX,portfolio_returns_ew)
+
+#Graph both of the returns
+charts.PerformanceSummary(ReturnsTotal,main="Performance of $1.00 on the SPX 500 over time",wealth.index = TRUE)
+```
+The S&P500 and the portfolio holding returns were very similar and most of the the time the S&P was higher but at the end of the year 2020 both returns were very similar with the actual created portfolio performing little bit better that the market but it was not a high difference which means that the S&P500 is a great way to invest and can give great returns in contrast with a construction of a portfolio based on the f score and the earnings per share deflated by price which is the most explicative independent variable from the model 3 because it has a very low p value.
+
+# 3 Examining the probability of bankrupcy/surviving
+
+The logit model is a non linear that is used to predict the probability of being or 0 or 1 of a binary variable, so for example to know whether you passed or not the course is a binary variable because there are only two options, or you pass or you fail and this is represented with 0 or 1. This uses the sigmoid function to find the probability which is 1/(1-e^-(B1+B2X1)) and is also known as the logistic distribution function. The function can also be written as Pi = 1/(1+e^-z) = e^z/(1+e^z)  where Pi is the probability of being 1 and (1-Pi) is the probability of being 0. Pi/(1-Pi) is the odds ratio which means the ratio probability that the event in study happens, but when the ln(odds_ratio) goes from -infinity to +infinity.
+
+a)
+```{r}
+#Load necessary libraries
+library(aod)
+library(ggplot2)
+library(plm)
+# Create data frame for the logit model
+dataLogit = pdata.frame(data, index = c("firm", "year"))
+
+# Create a new column with binary between active and not
+dataLogit$statusBinary<-ifelse(dataLogit$status=="active",1,0)
+
+#Calculations cash flow ratio and financial leverage
+dataLogit$cashflowratio = ifelse(dataLogit$totalassets!=0 ,dataLogit$cashflowoper/dataLogit$totalassets,NA)
+dataLogit$financialleverage = ifelse(dataLogit$totalassets != 0, (dataLogit$longdebt1+dataLogit$shortdebt)/dataLogit$totalassets,NA)
+
+# Run the logit model 
+mylogit <- glm(statusBinary ~ financialleverage + cashflowratio,data = dataLogit, family = "binomial",na.action = na.omit)
+
+#Summary of the model 
+summary(mylogit)
+
+#Get the odds ratio
+exp(mylogit$coefficients)
+```
+```{r}
+(0.9993798-1)
+```
+
+b) Interpretation
+
+The following model check whether there's a relation between the financial leverage, the cash flow ratio and the probability of the firm on going bankrupt. The dependent variable is if the firm is active or not active which is being represented with 1 and 0 respectively. The independent variables are the financial leverage and cash flow ratio. 
+
+After considering the effect of the cash flow ratio an increase in one unit of financial leverage decreases the log odds of being active versus going bankrupt by -0.0006204. Therefore the odds of being active decreases -0.0006202 when the financial leverage increases by one unit. This is not statistically significant because the p value is 0.859 which is much bigger than 0.05 and this means that there's no certainty that the above statement is true.
+
+After considering the effect of the financial leverage an increase in the cash flow rate will increase the log odds rate of the firm being active by 0.0035873. Therefore the odds rate of being active will increase by 0.0035938 when the cash flow ratio increases by one unit. But it is no statistically significant because the p value is 0.644 and is above 0.05.
+
+
+# Conclusion
+
+
+
+In conclusion, after the analysis of these companies and the characteristics meant to reach by this workshop, we can observe a real application of Econometrics as a helper tool to create informed portfolio investments. Indicators like F-Score, earnings per share, book to market ratio or other signals, like the ones applied for inventory. This are incredible resources to formalize fundamental analysis over companies and to obtain a broader perspective over their current status.
+
+With the portfolio we created we can conclude that the S&P500 is a great instrument to invest in, given that the returns were very similar to the portfolio created based on the fundamental analysis.
+
+At the same time, we understand that emerging markets, like Mexico, have not been properly explored in comparison to markets like U.S or China. As a result, more research is needed to comprehend the different properties that control the behavior of these markets.
+
+Regarding the logit model it can be concluded that is a great way to predict a binary result for example whether a company will go bankrupt or not, this is done with the use of the sigmoid function and the use of the odds ratio that these predictions can be made. This can help to calculate if a company we invested in could be at risk of going bankrupt or closing which is a very important aspect to know due to the times we are currently facing.

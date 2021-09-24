@@ -1,0 +1,94 @@
+---
+title: "Workshop 10 Fiancial Econometrics"
+author: "Juan David Torres"
+date: "Apr 28 2021"
+output:
+  html_document:
+    df_print: paged
+---
+# Multicolinearity
+Variance inflation factor = VIF
+What is the VIF
+If VIF(Xi) >=10 this means that X is having a strong correlation with anay of the rest of the independent variables(X2,X3) 
+
+We need to calculate the VIF dor all X's
+We sort according to the highst VIF and then we drop the variable with the highest VIF (Only if the VIF is >= 10) then we re run the regression without that x's.
+
+# Data collection and data management
+
+Downloading the data
+```{r}
+options(scipen=999)
+
+library(readxl)
+download.file("http://www.apradie.com/datos/datamx2020q4.xlsx", "dataw10.xlsx", mode="wb")
+
+```
+
+```{r}
+
+# Save the data of the excel into the variable data
+data <- read_excel("dataw10.xlsx")
+
+#Active firms only
+data <- data[data$status=="active",]
+
+# Keep only the last quarter of 2019
+data$quarter <- as.Date(data$quarter)
+data <- as.data.frame(data[(data$quarter=="2019-10-01"),])
+```
+
+# Testing for multicollienarity
+
+Running the multiple regression model 
+```{r}
+model1 <- lm(netincome ~ revenue + cogs + administrativeexpenses, data = data)
+s_model1 <- summary(model1)
+s_model1
+```
+
+Load Package car
+```{r}
+library(car)
+```
+
+```{r}
+# Use the fucntion vif(), which receives an lm object as argument
+car::vif(model1)
+```
+
+```{r}
+# Store the results in an object names vif_model1 
+# Adding the column of the inverse VIF  (1/VIF) is optional
+vif_model1 <- data.frame("VIF" = vif(model1), "inverseVIF" = 1/vif(model1))
+
+# Create vector of VIF values only in order to graph
+vif_values <- vif(model1)
+
+# Create horizontal bar chart to display each VIF value
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+abline(v = 10, lwd = 3, lty = 2)
+```
+
+```{r}
+# Compute correlation between independent variables: 
+indvar <- cbind(data$revenue,data$cogs, data$administrativeexpenses)
+colnames(indvar) <- c("revenue", "cogs", "administrativeexpenses")
+cor(na.omit(indvar))
+```
+ 
+# Re run without cogs
+
+```{r}
+model2 <- lm(netincome ~ revenue + administrativeexpenses, data = data)
+s_model2 <- summary(model2)
+s_model2
+```
+
+We remove the cogs independent variable from the linear regression to remove the multi collinearity problem. Running again the vif it will show that there is no VIF bigger or equal to 10 which means that the problem is solved. The coefficient in revenue changed and it is statistically significant. After considering the administrative expenses the revenue when it change by $1 then the net income will increase 0.069371.
+ 
+```{r}
+car::vif(model2)
+```
+ 
+ 
